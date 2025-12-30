@@ -1,0 +1,5 @@
+{
+  "name": "LS Tool Login",
+  "description": "A dreamy, glassmorphism-styled login application connecting to a dynamic backend via Supabase.",
+  "requestFramePermissions": []
+}
