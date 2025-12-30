@@ -1,4 +1,5 @@
 
+
 import { getBackendBaseUrl } from "./authService";
 
 const API_KEY = "lserp2026wyftool";
@@ -129,11 +130,11 @@ export async function runApsSchedule(req: ApsScheduleRunRequest): Promise<ApsSch
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
-          fromMc: req.fromMc,
-          toMc: req.toMc,
-          anchorStart: req.anchorStart,
-          includeAll: !!req.includeAll,
-          detailOrder: req.detailOrder,
+          FromMc: req.fromMc,
+          ToMc: req.toMc,
+          AnchorStart: req.anchorStart,
+          IncludeAll: !!req.includeAll,
+          DetailOrder: req.detailOrder,
         }),
       });
 

@@ -10,8 +10,7 @@ import {
   eachDayOfInterval,
   isSameDay,
   differenceInCalendarDays,
-  addMonths,
-  isSameMonth
+  addMonths
 } from "date-fns";
 import {
   Layers,
@@ -20,21 +19,40 @@ import {
   PlayCircle,
   ChevronDown,
   Filter,
-  Box,
   Package,
-  Cpu,
   Tag,
   ChevronRight,
-  MoreHorizontal,
   Hash,
   Clock,
-  Zap,
-  ChevronLeft,
-  ChevronUp,
   ArrowRight,
   Timer,
-  Factory
+  Factory,
+  ChevronLeft
 } from "lucide-react";
+
+// dnd-kit imports
+import {
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+  DragStartEvent,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { snapCenterToCursor } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
+
 import { fetchApsMonths, runApsSchedule, ApsMonthItem, ApsScheduleWarning } from "../services/apsScheduleService";
 
 // ==========================================
@@ -74,7 +92,7 @@ interface UiSegment {
 }
 
 interface UiTask {
-  id: string;
+  id: string; // explicitly string for dnd-kit keys
   billNo: string;
   detailId: number;
   productId: string;   
@@ -141,7 +159,6 @@ function safeDiffMins(end: any, start: any) {
   return differenceInMinutes(safeDate(end), safeDate(start));
 }
 
-// Polyfills
 function startOfMonth(date: Date): Date {
   const d = new Date(date);
   d.setDate(1);
@@ -158,56 +175,257 @@ function startOfDay(date: Date): Date {
   return d;
 }
 
-// [视觉回归] 鲜艳渐变流光风格 (Vivid Gradient & Glow)
 const getColor = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  
   const palettes = [
-    // 1. Cyber Blue
-    { 
-      bgGradient: "bg-gradient-to-r from-blue-500 to-cyan-400",
-      shadow: "shadow-[0_4px_14px_rgba(6,182,212,0.4)]",
-      border: "border-cyan-200/50",
-      text: "text-white"
-    },
-    // 2. Neon Purple
-    { 
-      bgGradient: "bg-gradient-to-r from-violet-500 to-fuchsia-400",
-      shadow: "shadow-[0_4px_14px_rgba(192,38,211,0.4)]",
-      border: "border-fuchsia-200/50",
-      text: "text-white"
-    },
-    // 3. Sunset
-    { 
-      bgGradient: "bg-gradient-to-r from-orange-500 to-amber-400",
-      shadow: "shadow-[0_4px_14px_rgba(245,158,11,0.4)]",
-      border: "border-amber-200/50",
-      text: "text-white"
-    },
-    // 4. Aurora Green
-    { 
-      bgGradient: "bg-gradient-to-r from-emerald-500 to-teal-400",
-      shadow: "shadow-[0_4px_14px_rgba(20,184,166,0.4)]",
-      border: "border-teal-200/50",
-      text: "text-white"
-    },
-    // 5. Hot Pink
-    { 
-      bgGradient: "bg-gradient-to-r from-pink-500 to-rose-400",
-      shadow: "shadow-[0_4px_14px_rgba(244,63,94,0.4)]",
-      border: "border-rose-200/50",
-      text: "text-white"
-    }
+    { bgGradient: "bg-gradient-to-r from-blue-500 to-cyan-400", shadow: "shadow-[0_4px_14px_rgba(6,182,212,0.4)]", border: "border-cyan-200/50", text: "text-white" },
+    { bgGradient: "bg-gradient-to-r from-violet-500 to-fuchsia-400", shadow: "shadow-[0_4px_14px_rgba(192,38,211,0.4)]", border: "border-fuchsia-200/50", text: "text-white" },
+    { bgGradient: "bg-gradient-to-r from-orange-500 to-amber-400", shadow: "shadow-[0_4px_14px_rgba(245,158,11,0.4)]", border: "border-amber-200/50", text: "text-white" },
+    { bgGradient: "bg-gradient-to-r from-emerald-500 to-teal-400", shadow: "shadow-[0_4px_14px_rgba(20,184,166,0.4)]", border: "border-teal-200/50", text: "text-white" },
+    { bgGradient: "bg-gradient-to-r from-pink-500 to-rose-400", shadow: "shadow-[0_4px_14px_rgba(244,63,94,0.4)]", border: "border-rose-200/50", text: "text-white" }
   ];
   return palettes[Math.abs(hash) % palettes.length];
 };
 
 // ==========================================
-// 4. 组件
+// 4. DragActiveCard (拖拽时的“飞行”卡片)
+// ==========================================
+// 这是一个纯展示组件，用于 DragOverlay 中，不需要 Sortable 的逻辑
+const DragActiveCard: React.FC<{ task: UiTask }> = ({ task }) => {
+  const isDelay = task.status === 'DELAY';
+
+  return (
+    <div
+      className={`
+        w-full rounded-2xl overflow-hidden flex flex-col border
+        bg-white border-blue-400 shadow-2xl ring-2 ring-blue-500/30 scale-105
+        relative h-[180px]
+      `}
+    >
+      {/* 侧边状态条 */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
+          isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
+      }`} />
+
+      {/* 拖拽时的抓手视觉 (放大) */}
+      <div
+         className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed rounded-full flex items-center justify-center z-30
+           cursor-grabbing border-blue-400 bg-blue-50/50 opacity-100"
+      >
+          <span className="text-5xl font-black select-none text-blue-600">
+             #
+          </span>
+      </div>
+
+      <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start pointer-events-none">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Hash size={12} className="text-slate-400"/>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
+            </div>
+            <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]">
+              {task.billNo}
+            </div>
+          </div>
+          <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+              {isDelay ? '延误' : '正常'}
+          </div>
+      </div>
+
+      <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0 pointer-events-none">
+          <div className="flex items-center gap-2 overflow-hidden">
+              <div className="p-1 bg-slate-100 text-blue-600 rounded">
+                <Tag size={12}/>
+              </div>
+              <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
+                  <Package size={10}/> 数量
+                </div>
+                <div className="font-mono text-sm font-black text-slate-700">
+                  {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
+                </div>
+            </div>
+
+            <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
+                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                  <Clock size={10}/> 交货日期
+                </div>
+                <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                  {safeFormat(task.dueTime, "yyyy-MM-dd")}
+                </div>
+            </div>
+          </div>
+      </div>
+      
+      <div className="relative z-10 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center pointer-events-none">
+          <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
+            {task.processRoute.map((step, idx) => (
+                <React.Fragment key={idx}>
+                    <div className={`
+                        shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
+                        ${idx === 0 
+                            ? 'bg-blue-600 text-white border-blue-600' 
+                            : 'bg-white text-slate-600 border-slate-200'}
+                    `}>
+                        {step}
+                    </div>
+                    {idx < task.processRoute.length - 1 && (
+                        <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                    )}
+                </React.Fragment>
+            ))}
+          </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 5. Sortable Task Item (列表中的卡片)
 // ==========================================
 
-// --- 4.1 任务详情抽屉 (Visual Overhaul) ---
+interface SortableTaskItemProps {
+  task: UiTask;
+  index: number;
+  isSelected: boolean;
+  isDraggable: boolean;
+  onClick: () => void;
+}
+
+const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, onClick }: SortableTaskItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, disabled: !isDraggable });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    height: VIEW_CONFIG.rowHeight,
+    zIndex: isDragging ? 0 : (isSelected ? 20 : 1), // Dragging item (ghost) has low z-index
+    position: 'relative' as const,
+  };
+
+  const isDelay = task.status === 'DELAY';
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`
+        w-full rounded-2xl overflow-hidden flex flex-col transition-all duration-200 border group
+        ${isDragging 
+            ? 'opacity-30 grayscale border-dashed border-slate-300 bg-slate-50' // Ghost style
+            : isSelected 
+                ? 'bg-blue-50 border-blue-400 shadow-xl' 
+                : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
+        }
+      `}
+      onClick={onClick}
+    >
+      {/* Side Status Bar */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
+          isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
+      }`} />
+
+      {/* Drag Handle */}
+      <div 
+         className={`
+           absolute top-12 right-6 w-24 h-24 border-4 border-dashed rounded-full flex items-center justify-center 
+           z-30 transition-all duration-300
+           ${isDraggable 
+               ? 'cursor-grab active:cursor-grabbing border-slate-300 hover:border-blue-400 hover:bg-blue-50/50 hover:scale-110 opacity-40 hover:opacity-100' 
+               : 'pointer-events-none border-slate-300/60 opacity-15 rotate-12'
+           }
+         `}
+         {...attributes} 
+         {...listeners}
+         title={isDraggable ? "拖拽此处调整优先级" : "筛选模式下不可排序"}
+      >
+          <span className={`text-5xl font-black select-none ${isDraggable ? 'text-slate-500 group-hover:text-blue-600' : 'text-slate-400'}`}>
+              {(index + 1).toString().padStart(2, '0')}
+          </span>
+      </div>
+
+      <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start pointer-events-none">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Hash size={12} className="text-slate-400"/>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
+            </div>
+            <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]" title={task.billNo}>
+              {task.billNo}
+            </div>
+          </div>
+          <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+              {isDelay ? '延误' : '正常'}
+          </div>
+      </div>
+
+      <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0 pointer-events-none">
+          <div className="flex items-center gap-2 overflow-hidden">
+              <div className="p-1 bg-slate-100 text-blue-600 rounded">
+                <Tag size={12}/>
+              </div>
+              <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-1">
+            <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
+                  <Package size={10}/> 数量
+                </div>
+                <div className="font-mono text-sm font-black text-slate-700">
+                  {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
+                </div>
+            </div>
+
+            <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
+                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                  <Clock size={10}/> 交货日期
+                </div>
+                <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                  {safeFormat(task.dueTime, "yyyy-MM-dd")}
+                </div>
+            </div>
+          </div>
+      </div>
+      
+      <div className="relative z-10 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center pointer-events-none">
+          <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
+            {task.processRoute.map((step, idx) => (
+                <React.Fragment key={idx}>
+                    <div className={`
+                        shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
+                        ${idx === 0 
+                            ? 'bg-blue-600 text-white border-blue-600' 
+                            : 'bg-white text-slate-600 border-slate-200'}
+                    `}>
+                        {step}
+                    </div>
+                    {idx < task.processRoute.length - 1 && (
+                        <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                    )}
+                </React.Fragment>
+            ))}
+          </div>
+      </div>
+    </div>
+  );
+});
+
+// ==========================================
+// 6. 任务详情抽屉
+// ==========================================
 const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> = ({ task, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [expandedIndices, setExpandedIndices] = useState<Set<number>>(new Set());
@@ -252,12 +470,10 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 
   return createPortal(
     <>
-      {/* 遮罩层 */}
       <div 
         className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998] transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
-      {/* 抽屉主体 */}
       <div 
         className={`
           fixed top-0 right-0 bottom-0 w-[600px] max-w-[95vw] 
@@ -268,7 +484,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
       >
         {task && (
           <div className="flex flex-col h-full bg-slate-50">
-             {/* 顶部固定区域：信息大卡片 */}
              <div className="p-8 pb-8 bg-white border-b border-slate-200 shadow-[0_4px_20px_-12px_rgba(0,0,0,0.1)] relative z-20">
                 <div className="flex items-center justify-between mb-6">
                    <div className="flex items-center gap-3">
@@ -297,7 +512,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                 </div>
                 
                 <div className="grid grid-cols-2 gap-5">
-                   {/* 产品信息卡 */}
                    <div className="p-5 bg-blue-50/60 rounded-[1.25rem] border border-blue-100/80 flex flex-col justify-center">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="p-1.5 bg-blue-500 text-white rounded-lg shadow-sm shadow-blue-300">
@@ -309,7 +523,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                          {task.productId}
                       </div>
                    </div>
-                   {/* 数量信息卡 */}
                    <div className="p-5 bg-purple-50/60 rounded-[1.25rem] border border-purple-100/80 flex flex-col justify-center">
                       <div className="flex items-center gap-2 mb-2">
                          <div className="p-1.5 bg-purple-500 text-white rounded-lg shadow-sm shadow-purple-300">
@@ -324,11 +537,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                 </div>
              </div>
              
-             {/* 下方滚动区域：排程详情 */}
              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative bg-slate-50">
-                {/* 时间轴线 */}
-                <div className="absolute left-[47px] top-0 bottom-0 w-[3px] bg-slate-200/70 z-0"></div>
-                
                 <div className="space-y-10 relative z-10 pb-10">
                    {groupedSegments.map((group, groupIndex) => {
                       const isExpanded = expandedIndices.has(groupIndex);
@@ -336,17 +545,12 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 
                       return (
                         <div key={groupIndex} className="relative pl-12 group">
-                           {/* 节点圆圈 */}
                            <div className="absolute left-[48px] top-7 -translate-x-1/2 w-5 h-5 rounded-full bg-white border-[5px] border-blue-500 shadow-lg z-20 group-hover:scale-110 transition-transform"></div>
-                           
-                           {/* 卡片容器 */}
                            <div className="bg-white border border-slate-200/80 rounded-[1.5rem] p-6 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_30px_-5px_rgba(0,0,0,0.08)] transition-all duration-300">
-                              
                               <div 
                                 className={`flex flex-col gap-4 ${isMulti ? 'cursor-pointer select-none' : ''}`}
                                 onClick={() => isMulti && toggleGroup(groupIndex)}
                               >
-                                 {/* 1. 头部行：序号 + 名称 + 统计 + 展开图标 */}
                                  <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4">
                                         <div className="w-8 h-8 flex items-center justify-center bg-slate-800 text-white rounded-xl shadow-lg shadow-slate-200 text-sm font-black font-mono">
@@ -366,19 +570,14 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                             )}
                                         </div>
                                     </div>
-                                    
                                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200">
                                         <Timer size={14} className="text-slate-400"/>
                                         <span className="text-sm font-black text-slate-700 font-mono">{formatDuration(group.totalMins)}</span>
                                     </div>
                                  </div>
-
-                                 {/* 2. 只有合并工序(Multi)才显示的时间范围条 */}
                                  {isMulti && (
                                      <div className="relative mt-2 p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between group-hover:bg-blue-50/30 transition-colors">
-                                         {/* 连接线装饰 */}
                                          <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-slate-200 -z-10 border-t border-dashed border-slate-300"></div>
-                                         
                                          <div className="flex flex-col items-center bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm z-10">
                                             <span className="text-[10px] font-bold text-emerald-500 uppercase mb-0.5">开始</span>
                                             <span className="font-mono text-sm font-black text-slate-800">{safeFormat(group.start, "MM-dd HH:mm")}</span>
@@ -390,8 +589,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                      </div>
                                  )}
                               </div>
-
-                              {/* 3. 详细工序列表 (单工序直接显示，多工序折叠) */}
                               <div className={`
                                   ${isMulti ? 'mt-6 pl-4 border-l-2 border-dashed border-slate-200 space-y-6' : 'mt-4'}
                                   ${isMulti && !isExpanded ? 'hidden' : 'block'}
@@ -401,10 +598,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                        {isMulti && (
                                           <div className="absolute -left-[21px] top-3 w-3 h-3 bg-slate-200 rounded-full border-2 border-white"></div>
                                        )}
-                                       
-                                       {/* 详情块：设备 + 时间 */}
                                        <div className="bg-slate-50/50 rounded-xl p-4 border border-slate-100 hover:bg-white hover:shadow-md transition-all">
-                                           {/* 机器设备 */}
                                            <div className="flex items-center gap-2 mb-4">
                                                <div className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-500 shadow-sm">
                                                    <Factory size={16} />
@@ -418,8 +612,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                                    </span>
                                                )}
                                            </div>
-
-                                           {/* 时间网格 - 放大字体 */}
                                            <div className="grid grid-cols-2 gap-4">
                                                <div className="bg-white p-3 rounded-xl border border-emerald-100/50 shadow-sm flex flex-col">
                                                    <span className="text-xs font-bold text-slate-400 mb-1 flex items-center gap-1">
@@ -446,8 +638,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                         </div>
                       );
                    })}
-                   
-                   {/* 结束节点 */}
                    <div className="relative pl-12 pt-2 opacity-60">
                       <div className="absolute left-[48px] top-3 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-300 z-20"></div>
                       <div className="text-sm font-bold text-slate-400 italic pl-1">流程结束</div>
@@ -463,7 +653,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 };
 
 // ==========================================
-// 5. 主页面
+// 7. 主页面
 // ==========================================
 
 export default function ApsSchedulingPage() {
@@ -473,6 +663,10 @@ export default function ApsSchedulingPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(""); 
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false);
   
+  // 拖拽状态
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeTask = useMemo(() => tasks.find((t) => t.id === activeId), [activeId, tasks]);
+
   // 视图起始时间
   const [viewStart, setViewStart] = useState<Date>(startOfMonth(new Date()));
   
@@ -481,6 +675,18 @@ export default function ApsSchedulingPage() {
   const [selectedTask, setSelectedTask] = useState<UiTask | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // DnD Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Avoid accidental drags
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   // 视图范围：45天
   const viewEnd = useMemo(() => {
@@ -524,11 +730,14 @@ export default function ApsSchedulingPage() {
     }
   };
 
-  const loadSchedule = async () => {
+  const loadSchedule = async (orderedIds?: number[]) => {
     if (!selectedMonth) return;
-    setLoading(true);
+    setLoading(true); // Ensure loading state is set
     try {
-      const res = await runApsSchedule({ fromMc: selectedMonth });
+      const res = await runApsSchedule({ 
+        fromMc: selectedMonth,
+        detailOrder: orderedIds // 传入排序后的 ID
+      });
       const map = new Map<number, UiSegment[]>();
       const warns = new Map<number, ApsScheduleWarning[]>();
       
@@ -566,11 +775,25 @@ export default function ApsSchedulingPage() {
          });
       });
 
+      let taskIds: number[] = [];
+      if (orderedIds && orderedIds.length > 0) {
+         taskIds = orderedIds;
+      } else {
+         taskIds = Array.from(map.keys());
+      }
+      
+      // 补充 map 中有但 orderedIds 中没有的 (防止数据丢失)
+      const allMapKeys = Array.from(map.keys());
+      const missingKeys = allMapKeys.filter(k => !taskIds.includes(k));
+      taskIds = [...taskIds, ...missingKeys];
+
       const newTasks: UiTask[] = [];
 
-      map.forEach((segs, did) => {
+      taskIds.forEach(did => {
+         const segs = map.get(did);
+         if (!segs || segs.length === 0) return;
+
          segs.sort((a, b) => a.start.getTime() - b.start.getTime());
-         if (segs.length === 0) return;
 
          const myWarns = warns.get(did) || [];
          let status: UiTask["status"] = "NORMAL";
@@ -579,7 +802,7 @@ export default function ApsSchedulingPage() {
 
          const detailInfo = res.details?.find(d => Number(getPropSmart(d, ['detailId', 'DetailId', 'did'])) === did);
          newTasks.push({
-           id: String(did),
+           id: String(did), // dnd-kit uses string IDs
            billNo: getPropSmart(detailInfo, ['billNo', 'BillNo']) || "无单号",
            detailId: did,
            productId: getPropSmart(detailInfo, ['productId', 'ProductId']) || "N/A", 
@@ -600,7 +823,8 @@ export default function ApsSchedulingPage() {
       
       setTasks(newTasks);
 
-      if (earliestStart !== Infinity) {
+      if (earliestStart !== Infinity && !orderedIds) {
+         // Only reset view on initial load, not on reorder
          const d = new Date(earliestStart);
          if (selectedMonth) {
              const match = selectedMonth.match(/(\d{4})年(\d{1,2})月/);
@@ -623,6 +847,37 @@ export default function ApsSchedulingPage() {
 
   useEffect(() => { loadSchedule(); }, [selectedMonth]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setTasks((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+        
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        
+        // 触发后端排程更新
+        const newDetailIds = newOrder.map(t => t.detailId);
+        
+        // 💡 立即设置 Loading 状态，让用户感知到排程正在重算
+        setLoading(true);
+        // 使用 setTimeout 稍微延后一点点请求，避免 UI 动画卡顿，
+        // 但确保 loadSchedule 真正被调用并传递了 ID
+        setTimeout(() => {
+            loadSchedule(newDetailIds);
+        }, 50);
+
+        return newOrder;
+      });
+    }
+    setActiveId(null);
+  };
+
   const filteredTasks = useMemo(() => {
     let res = tasks;
     if (keyword) {
@@ -632,6 +887,9 @@ export default function ApsSchedulingPage() {
     if (onlyDelayed) res = res.filter(t => t.status !== 'NORMAL');
     return res;
   }, [tasks, keyword, onlyDelayed]);
+
+  // Can only drag if we are viewing the full list (no filters active)
+  const isDragEnabled = !keyword && !onlyDelayed;
 
   const getSegmentStyle = (segStart: Date, segEnd: Date) => {
     const startH = segStart.getHours() + segStart.getMinutes() / 60;
@@ -681,12 +939,6 @@ export default function ApsSchedulingPage() {
     const y = d.getFullYear();
     const m = d.getMonth() + 1;
     setSelectedMonth(`${y}年${m}月`);
-  };
-
-  const handleToday = () => {
-      const now = new Date();
-      setViewStart(startOfMonth(now));
-      setSelectedMonth(`${now.getFullYear()}年${now.getMonth()+1}月`);
   };
 
   return (
@@ -772,7 +1024,7 @@ export default function ApsSchedulingPage() {
             </button>
          </div>
 
-         <button onClick={loadSchedule} disabled={loading} className="flex items-center gap-2 px-6 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700 shadow-lg shadow-slate-400/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all">
+         <button onClick={() => loadSchedule()} disabled={loading} className="flex items-center gap-2 px-6 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700 shadow-lg shadow-slate-400/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all">
             <PlayCircle size={16} className={loading ? "animate-spin" : ""} /> 
             <span className="text-sm font-bold">开始排程</span>
          </button>
@@ -781,134 +1033,57 @@ export default function ApsSchedulingPage() {
       {/* --- 主滚动区域 --- */}
       <div className="flex-1 flex overflow-hidden relative">
          
-         {/* 1. 左侧固定列表 (Task List) */}
-         <div 
-             className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
-             style={{ width: VIEW_CONFIG.leftColWidth }}
+         <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
          >
-             {/* Header */}
-             <div className="h-[76px] shrink-0 border-b border-white/50 flex items-center px-6 bg-white/50 backdrop-blur-md">
-                <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-lg">
-                   <Layers className="text-blue-600" size={20}/>
-                   排程任务
-                   <span className="ml-2 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
+            {/* 1. 左侧固定列表 (Task List) */}
+            <div 
+                className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
+                style={{ width: VIEW_CONFIG.leftColWidth }}
+            >
+                {/* Header */}
+                <div className="h-[76px] shrink-0 border-b border-white/50 flex items-center px-6 bg-white/50 backdrop-blur-md">
+                   <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-lg">
+                      <Layers className="text-blue-600" size={20}/>
+                      排程任务
+                      <span className="ml-2 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
+                      {loading && <span className="text-xs text-blue-500 animate-pulse ml-2">正在排程...</span>}
+                   </div>
                 </div>
-             </div>
-             
-             {/* List Body [Modified for Sync & Hidden Scroll] */}
-             <div 
-                id="left-panel-scroll"
-                className="flex-1 overflow-hidden" 
-                onWheel={(e) => {
-                    const right = document.getElementById('right-panel-scroll');
-                    if (right) right.scrollTop += e.deltaY;
-                }}
-             >
-                <div className="py-3 space-y-4 px-4">
-                  {filteredTasks.map((task, index) => {
-                     const isSelected = selectedTask?.id === task.id;
-                     const isDelay = task.status === 'DELAY';
-
-                     return (
-                        <div 
-                           key={task.id}
-                           style={{ height: VIEW_CONFIG.rowHeight }}
-                           className={`
-                             w-full relative rounded-2xl overflow-hidden flex flex-col transition-all duration-300 cursor-pointer border group
-                             ${isSelected 
-                                 ? 'bg-blue-50 border-blue-400 shadow-xl z-20' 
-                                 : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
-                             }
-                           `}
-                           onClick={() => setSelectedTask(task)}
-                        >
-                            {/* 侧边状态条 */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
-                                isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
-                            }`} />
-
-                            {/* --- 背景装饰：右侧中段 大型序号水印 (Z-index 20 强制最前 + 透明度控制) --- */}
-                            <div className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed border-slate-300/60 rounded-full flex items-center justify-center opacity-15 pointer-events-none rotate-12 z-20 group-hover:opacity-40 group-hover:border-blue-300 group-hover:text-blue-400 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
-                                <span className="text-5xl font-black text-slate-400 select-none">
-                                    {(index + 1).toString().padStart(2, '0')}
-                                </span>
-                            </div>
-
-                            <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start">
-                               <div>
-                                 <div className="flex items-center gap-2 mb-1.5">
-                                    <Hash size={12} className="text-slate-400"/>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
-                                 </div>
-                                 <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]" title={task.billNo}>
-                                    {task.billNo}
-                                 </div>
-                               </div>
-                               <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
-                                   {isDelay ? '延误' : '正常'}
-                               </div>
-                            </div>
-
-                            <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0">
-                               <div className="flex items-center gap-2 overflow-hidden">
-                                    <div className="p-1 bg-slate-100 text-blue-600 rounded">
-                                      <Tag size={12}/>
-                                    </div>
-                                    <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
-                               </div>
-
-                               <div className="grid grid-cols-2 gap-3 mt-1">
-                                  {/* QTY [中文] */}
-                                  <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
-                                     <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
-                                        <Package size={10}/> 数量
-                                     </div>
-                                     <div className="font-mono text-sm font-black text-slate-700">
-                                        {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
-                                     </div>
-                                  </div>
-
-                                  {/* Due Date [中文] */}
-                                  <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
-                                     <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        <Clock size={10}/> 交货日期
-                                     </div>
-                                     <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
-                                        {safeFormat(task.dueTime, "yyyy-MM-dd")}
-                                     </div>
-                                  </div>
-                               </div>
-                            </div>
-                            
-                            {/* 底部步骤条 - 横向滚动胶囊 */}
-                            <div className="relative z-10 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center">
-                               <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
-                                  {task.processRoute.map((step, idx) => (
-                                      <React.Fragment key={idx}>
-                                          <div className={`
-                                              shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
-                                              ${idx === 0 
-                                                  ? 'bg-blue-600 text-white border-blue-600' 
-                                                  : 'bg-white text-slate-600 border-slate-200'}
-                                          `}>
-                                              {step}
-                                          </div>
-                                          {idx < task.processRoute.length - 1 && (
-                                              <ArrowRight size={10} className="text-slate-300 shrink-0" />
-                                          )}
-                                      </React.Fragment>
-                                  ))}
-                               </div>
-                               {/* 遮罩提示还有更多内容 */}
-                               <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
-                            </div>
-                        </div>
-                     );
-                  })}
-                  <div className="h-20"></div>
+                
+                {/* List Body [Modified for Sync & Hidden Scroll] */}
+                <div 
+                   id="left-panel-scroll"
+                   className="flex-1 overflow-hidden" 
+                   onWheel={(e) => {
+                       const right = document.getElementById('right-panel-scroll');
+                       if (right) right.scrollTop += e.deltaY;
+                   }}
+                >
+                   <div className="py-3 space-y-4 px-4">
+                     <SortableContext 
+                        items={filteredTasks.map(t => t.id)}
+                        strategy={verticalListSortingStrategy}
+                     >
+                       {filteredTasks.map((task, index) => (
+                          <SortableTaskItem 
+                             key={task.id}
+                             task={task}
+                             index={index}
+                             isSelected={selectedTask?.id === task.id}
+                             isDraggable={isDragEnabled}
+                             onClick={() => setSelectedTask(task)}
+                          />
+                       ))}
+                     </SortableContext>
+                     <div className="h-20"></div>
+                   </div>
                 </div>
-             </div>
-         </div>
+            </div>
+         </DndContext>
 
          {/* 2. 右侧甘特图 (Gantt Chart) - 可横向滚动 */}
          <div 
@@ -1050,6 +1225,21 @@ export default function ApsSchedulingPage() {
             </div>
          </div>
       </div>
+
+      {createPortal(
+        <DragOverlay
+          modifiers={[snapCenterToCursor]}
+          dropAnimation={{
+            sideEffects: defaultDropAnimationSideEffects({
+              styles: { active: { opacity: '0.3' } },
+            }),
+          }}
+          className="z-[9999] cursor-grabbing pointer-events-none"
+        >
+          {activeTask ? <DragActiveCard task={activeTask} /> : null}
+        </DragOverlay>,
+        document.body
+      )}
       
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 12px; height: 14px; }
