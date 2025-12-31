@@ -32,8 +32,31 @@ import {
   ChevronLeft,
   ChevronUp,
   ArrowRight,
-  Timer
+  Timer,
+  GripVertical
 } from "lucide-react";
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  defaultDropAnimationSideEffects,
+  DropAnimation
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { snapCenterToCursor } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
 import { fetchApsMonths, runApsSchedule, ApsMonthItem, ApsScheduleWarning } from "../services/apsScheduleService";
 
 // ==========================================
@@ -407,7 +430,163 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 };
 
 // ==========================================
-// 5. 主页面
+// 5. 任务卡片组件 (用于 Sortable 和 DragOverlay)
+// ==========================================
+const TaskCard: React.FC<{
+  task: UiTask;
+  index: number;
+  isSelected?: boolean;
+  isDragging?: boolean;
+  onClick?: () => void;
+  dragHandleProps?: any; // 用于传递拖拽句柄的 props
+}> = ({ task, index, isSelected, isDragging, onClick, dragHandleProps }) => {
+  const isDelay = task.status === 'DELAY';
+  
+  return (
+    <div 
+       style={{ height: VIEW_CONFIG.rowHeight }}
+       // 重点优化：将拖拽监听器绑定到整个卡片容器
+       {...dragHandleProps}
+       className={`
+         w-full relative rounded-2xl overflow-hidden flex flex-col transition-all duration-200 border group select-none
+         ${isDragging 
+             ? 'bg-white shadow-2xl scale-[1.02] border-blue-400 z-50 ring-2 ring-blue-200 rotate-1 cursor-grabbing' 
+             : (isSelected 
+                 ? 'bg-blue-50 border-blue-400 shadow-xl z-20 cursor-grab active:cursor-grabbing' 
+                 : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 cursor-grab active:cursor-grabbing'
+               )
+         }
+       `}
+       onClick={onClick}
+    >
+        {/* 侧边状态条 */}
+        <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
+            isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
+        }`} />
+
+        {/* 背景装饰序号 - 现在您可以透过它直接拖动卡片 */}
+        <div className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed border-slate-300/60 rounded-full flex items-center justify-center opacity-15 pointer-events-none rotate-12 z-10 group-hover:opacity-40 group-hover:border-blue-300 group-hover:text-blue-400 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
+            <span className="text-5xl font-black text-slate-400 select-none">
+                {(index + 1).toString().padStart(2, '0')}
+            </span>
+        </div>
+
+        {/* 头部：单号与状态 */}
+        <div className="relative z-20 px-4 pt-4 pb-2 flex justify-between items-start pl-5">
+           <div className="flex items-start gap-3">
+             {/* 
+                 优化：保留图标作为视觉提示，但不需要专门的 div 监听事件了 
+                 因为父级容器已经接管了拖拽事件
+             */}
+             <div className="mt-1 -ml-1.5 p-1 text-slate-300 group-hover:text-blue-500 transition-colors">
+                <GripVertical size={16} />
+             </div>
+             
+             <div>
+               <div className="flex items-center gap-2 mb-1.5">
+                  <Hash size={12} className="text-slate-400"/>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
+               </div>
+               <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[200px]" title={task.billNo}>
+                  {task.billNo}
+               </div>
+             </div>
+           </div>
+           
+           <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+               {isDelay ? '延误' : '正常'}
+           </div>
+        </div>
+
+        {/* 内容详情 */}
+        <div className="relative z-20 px-5 flex-1 flex flex-col gap-3 min-h-0">
+           <div className="flex items-center gap-2 overflow-hidden">
+                <div className="p-1 bg-slate-100 text-blue-600 rounded">
+                  <Tag size={12}/>
+                </div>
+                <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+           </div>
+
+           <div className="grid grid-cols-2 gap-3 mt-1">
+              <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
+                 <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
+                    <Package size={10}/> 数量
+                 </div>
+                 <div className="font-mono text-sm font-black text-slate-700">
+                    {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
+                 </div>
+              </div>
+
+              <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
+                 <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                    <Clock size={10}/> 交货日期
+                 </div>
+                 <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                    {safeFormat(task.dueTime, "yyyy-MM-dd")}
+                 </div>
+              </div>
+           </div>
+        </div>
+        
+        {/* 底部工艺流程条 */}
+        <div className="relative z-20 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center">
+           <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
+              {task.processRoute.map((step, idx) => (
+                  <React.Fragment key={idx}>
+                      <div className={`
+                          shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
+                          ${idx === 0 
+                              ? 'bg-blue-600 text-white border-blue-600' 
+                              : 'bg-white text-slate-600 border-slate-200'}
+                      `}>
+                          {step}
+                      </div>
+                      {idx < task.processRoute.length - 1 && (
+                          <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                      )}
+                  </React.Fragment>
+              ))}
+           </div>
+           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
+        </div>
+    </div>
+  );
+};
+
+// 封装 Sortable 逻辑
+const SortableTaskItem = ({ task, index, isSelected, onClick }: { task: UiTask, index: number, isSelected: boolean, onClick: () => void }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1, // 拖拽时原位置变淡
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="mb-4 touch-none">
+       <TaskCard 
+          task={task} 
+          index={index} 
+          isSelected={isSelected} 
+          onClick={onClick}
+          // 优化：将拖拽属性传递给 TaskCard，用于绑定到整个容器
+          dragHandleProps={{...attributes, ...listeners}}
+       />
+    </div>
+  );
+};
+
+
+// ==========================================
+// 6. 主页面
 // ==========================================
 
 export default function ApsSchedulingPage() {
@@ -427,8 +606,23 @@ export default function ApsSchedulingPage() {
   // 辅助线状态
   const [guidePos, setGuidePos] = useState<{x: number, timeStr: string} | null>(null);
   
+  // 拖拽相关状态
+  const [activeId, setActiveId] = useState<string | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+  
+  // 拖拽传感器配置
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // 移动 5px 后才算拖拽，防止点击误触
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   const viewEnd = useMemo(() => {
      return addDays(viewStart, 7);
@@ -441,7 +635,6 @@ export default function ApsSchedulingPage() {
 
   const ganttTotalWidth = days.length * VIEW_CONFIG.dayColWidth;
 
-  // 24小时 / 2小时 = 12个区间
   const timeSlots = Array.from({ length: 12 }, (_, i) => i * 2);
 
   useEffect(() => {
@@ -573,6 +766,8 @@ export default function ApsSchedulingPage() {
 
   useEffect(() => { loadSchedule(); }, [selectedMonth]);
 
+  // 注意：为了支持拖拽排序，filteredTasks 必须基于 tasks 派生
+  // 当 tasks 顺序改变时，filteredTasks 也会按新顺序生成
   const filteredTasks = useMemo(() => {
     let res = tasks;
     if (keyword) {
@@ -583,13 +778,42 @@ export default function ApsSchedulingPage() {
     return res;
   }, [tasks, keyword, onlyDelayed]);
 
+  // 拖拽事件处理
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      setTasks((items) => {
+        const oldIndex = items.findIndex((t) => t.id === active.id);
+        const newIndex = items.findIndex((t) => t.id === over.id);
+        
+        // 使用 arrayMove 重新排序，这会自动触发 filteredTasks 重新计算
+        // 进而触发右侧甘特图的重新渲染，实现顺序同步
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+    setActiveId(null);
+  };
+
+  const dropAnimation: DropAnimation = {
+    sideEffects: defaultDropAnimationSideEffects({
+      styles: {
+        active: {
+          opacity: '0.4',
+        },
+      },
+    }),
+  };
+
+  // --- 样式辅助 ---
   const getSegmentStyle = (segStart: Date, segEnd: Date) => {
     const startH = segStart.getHours() + segStart.getMinutes() / 60;
     const endH = segEnd.getHours() + segEnd.getMinutes() / 60;
-    
-    // 工作时间标准化 (0-24)
     const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
-    
     const visibleStartH = Math.max(VIEW_CONFIG.workStartHour, Math.min(VIEW_CONFIG.workEndHour, startH));
     const visibleEndH = Math.max(VIEW_CONFIG.workStartHour, Math.min(VIEW_CONFIG.workEndHour, endH));
     
@@ -607,12 +831,10 @@ export default function ApsSchedulingPage() {
   const getPosPx = (date: Date) => {
     const dayInd = differenceInCalendarDays(date, viewStart);
     if (dayInd < 0 || dayInd >= days.length) return -9999;
-
     const h = date.getHours() + date.getMinutes() / 60;
     const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
     let p = (h - VIEW_CONFIG.workStartHour) / totalH;
     p = Math.max(0, Math.min(1, p));
-    
     return (dayInd + p) * VIEW_CONFIG.dayColWidth;
   };
 
@@ -632,28 +854,27 @@ export default function ApsSchedulingPage() {
     setSelectedMonth(`${y}年${m}月`);
   };
 
-  // 处理鼠标移动，计算光标对应的时间
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!rightPanelRef.current) return;
     const rect = rightPanelRef.current.getBoundingClientRect();
     const scrollLeft = rightPanelRef.current.scrollLeft;
     const x = e.clientX - rect.left + scrollLeft;
-    
     if (x < 0) return;
-    
     const totalW = days.length * VIEW_CONFIG.dayColWidth;
     if (x > totalW) return;
-
     const dayIndex = Math.floor(x / VIEW_CONFIG.dayColWidth);
     const pxInDay = x % VIEW_CONFIG.dayColWidth;
-    // 720px = 24h => 30px = 1h
     const hours = pxInDay / 30;
-    
     if (dayIndex >= 0 && dayIndex < days.length) {
         const date = addMinutes(days[dayIndex], hours * 60);
         setGuidePos({ x, timeStr: format(date, 'MM-dd HH:mm') });
     }
   };
+
+  // 渲染正在拖拽的浮层卡片
+  const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
+  // 查找 activeTask 在原始 tasks 数组中的索引来显示正确的序号
+  const activeIndex = activeId ? tasks.findIndex(t => t.id === activeId) : 0;
 
   return (
     <div className="h-full flex flex-col font-sans text-slate-700 overflow-hidden relative bg-white/50">
@@ -663,16 +884,12 @@ export default function ApsSchedulingPage() {
       {/* --- 顶部工具栏 --- */}
       <div className="relative flex items-center justify-between px-6 py-4 shrink-0 z-50 h-[76px] border-b border-white/40">
          <div className="absolute inset-x-0 top-0 bottom-0 bg-white/40 backdrop-blur-xl -z-10"></div>
-
          <div className="flex items-center gap-4">
-            
-            {/* 合并后的日期选择器 */}
             <div className="relative" ref={dropdownRef}>
                 <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm transition-shadow hover:shadow-md hover:border-blue-200">
                     <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" title="上个月">
                         <ChevronLeft size={16}/>
                     </button>
-                    
                     <div 
                         onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
                         className="px-4 py-1.5 flex flex-col items-center cursor-pointer hover:bg-slate-50 rounded-lg group select-none transition-colors min-w-[120px]"
@@ -685,12 +902,10 @@ export default function ApsSchedulingPage() {
                             <ChevronDown size={12} className={`opacity-40 group-hover:opacity-100 transition-all ${isMonthSelectorOpen ? 'rotate-180' : ''}`}/>
                         </div>
                     </div>
-
                     <button onClick={handleNextMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" title="下个月">
                         <ChevronRight size={16}/>
                     </button>
                 </div>
-
                 {isMonthSelectorOpen && (
                  <div className="absolute top-full left-0 mt-3 w-64 bg-white/90 backdrop-blur-xl border border-white/60 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in zoom-in-95 origin-top-left ring-1 ring-slate-100">
                     <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">
@@ -723,19 +938,15 @@ export default function ApsSchedulingPage() {
                  </div>
                )}
             </div>
-
             <div className="h-6 w-px bg-slate-200 mx-2"></div>
-
             <div className="relative group">
                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                <input value={keyword} onChange={e => setKeyword(e.target.value)} className="pl-10 pr-4 py-2 w-64 bg-white border border-slate-200 rounded-xl text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all outline-none shadow-sm" placeholder="搜索单号..." />
             </div>
-
             <button onClick={() => setOnlyDelayed(!onlyDelayed)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${onlyDelayed ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                <Filter size={14} /> <span>只看延误</span>
             </button>
          </div>
-
          <button onClick={loadSchedule} disabled={loading} className="flex items-center gap-2 px-6 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700 shadow-lg shadow-slate-400/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all">
             <PlayCircle size={16} className={loading ? "animate-spin" : ""} /> 
             <span className="text-sm font-bold">开始排程</span>
@@ -745,7 +956,7 @@ export default function ApsSchedulingPage() {
       {/* --- 主滚动区域 --- */}
       <div className="flex-1 flex overflow-hidden relative">
          
-         {/* 1. 左侧固定列表 (Task List) */}
+         {/* 1. 左侧固定列表 (Task List) - Dnd Context Wrapper */}
          <div 
              className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
              style={{ width: VIEW_CONFIG.leftColWidth }}
@@ -766,101 +977,56 @@ export default function ApsSchedulingPage() {
                     if (right) right.scrollTop += e.deltaY;
                 }}
              >
-                <div className="py-3 space-y-4 px-4">
-                  {filteredTasks.map((task, index) => {
-                     const isSelected = selectedTask?.id === task.id;
-                     const isDelay = task.status === 'DELAY';
-
-                     return (
-                        <div 
-                           key={task.id}
-                           style={{ height: VIEW_CONFIG.rowHeight }}
-                           className={`
-                             w-full relative rounded-2xl overflow-hidden flex flex-col transition-all duration-300 cursor-pointer border group
-                             ${isSelected 
-                                 ? 'bg-blue-50 border-blue-400 shadow-xl z-20' 
-                                 : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
-                             }
-                           `}
+                <div className="py-3 px-4">
+                  <DndContext 
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext 
+                      items={filteredTasks.map(t => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {filteredTasks.map((task, index) => (
+                        <SortableTaskItem 
+                           key={task.id} 
+                           task={task} 
+                           index={index} 
+                           isSelected={selectedTask?.id === task.id}
                            onClick={() => setSelectedTask(task)}
-                        >
-                            <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
-                                isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
-                            }`} />
-
-                            <div className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed border-slate-300/60 rounded-full flex items-center justify-center opacity-15 pointer-events-none rotate-12 z-20 group-hover:opacity-40 group-hover:border-blue-300 group-hover:text-blue-400 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
-                                <span className="text-5xl font-black text-slate-400 select-none">
-                                    {(index + 1).toString().padStart(2, '0')}
-                                </span>
-                            </div>
-
-                            <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start">
-                               <div>
-                                 <div className="flex items-center gap-2 mb-1.5">
-                                    <Hash size={12} className="text-slate-400"/>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
-                                 </div>
-                                 <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]" title={task.billNo}>
-                                    {task.billNo}
-                                 </div>
-                               </div>
-                               <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
-                                   {isDelay ? '延误' : '正常'}
-                               </div>
-                            </div>
-
-                            <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0">
-                               <div className="flex items-center gap-2 overflow-hidden">
-                                    <div className="p-1 bg-slate-100 text-blue-600 rounded">
-                                      <Tag size={12}/>
-                                    </div>
-                                    <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
-                               </div>
-
-                               <div className="grid grid-cols-2 gap-3 mt-1">
-                                  <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
-                                     <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
-                                        <Package size={10}/> 数量
-                                     </div>
-                                     <div className="font-mono text-sm font-black text-slate-700">
-                                        {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
-                                     </div>
-                                  </div>
-
-                                  <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
-                                     <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        <Clock size={10}/> 交货日期
-                                     </div>
-                                     <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
-                                        {safeFormat(task.dueTime, "yyyy-MM-dd")}
-                                     </div>
-                                  </div>
-                               </div>
-                            </div>
-                            
-                            <div className="relative z-10 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center">
-                               <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
-                                  {task.processRoute.map((step, idx) => (
-                                      <React.Fragment key={idx}>
-                                          <div className={`
-                                              shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
-                                              ${idx === 0 
-                                                  ? 'bg-blue-600 text-white border-blue-600' 
-                                                  : 'bg-white text-slate-600 border-slate-200'}
-                                          `}>
-                                              {step}
-                                          </div>
-                                          {idx < task.processRoute.length - 1 && (
-                                              <ArrowRight size={10} className="text-slate-300 shrink-0" />
-                                          )}
-                                      </React.Fragment>
-                                  ))}
-                               </div>
-                               <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
-                            </div>
-                        </div>
-                     );
-                  })}
+                        />
+                      ))}
+                    </SortableContext>
+                    
+                    {createPortal(
+                      <DragOverlay
+                        modifiers={[snapCenterToCursor]}
+                        dropAnimation={{
+                          sideEffects: defaultDropAnimationSideEffects({
+                            styles: {
+                              active: {
+                                opacity: '0.4',
+                              },
+                            },
+                          }),
+                        }}
+                        className="z-[9999] cursor-grabbing pointer-events-none"
+                      >
+                        {activeTask ? (
+                          <div style={{ width: VIEW_CONFIG.leftColWidth - 32 }}>
+                            <TaskCard 
+                              task={activeTask} 
+                              index={activeIndex} 
+                              isSelected={selectedTask?.id === activeTask.id}
+                              isDragging={true}
+                            />
+                          </div>
+                        ) : null}
+                      </DragOverlay>,
+                      document.body
+                    )}
+                  </DndContext>
                   <div className="h-20"></div>
                 </div>
              </div>
@@ -880,7 +1046,7 @@ export default function ApsSchedulingPage() {
          >
             <div style={{ width: Math.max(1000, ganttTotalWidth), minHeight: '100%' }} className="relative group/gantt">
                
-               {/* A. 顶部日期头 (Sticky) */}
+               {/* A. 顶部日期头 */}
                <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[76px]">
                    {days.map((day, i) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
@@ -915,7 +1081,7 @@ export default function ApsSchedulingPage() {
                    })}
                </div>
 
-               {/* B. 全高背景网格层 (绝对定位，撑满全屏) */}
+               {/* B. 全高背景网格层 */}
                <div className="absolute top-[76px] bottom-0 left-0 right-0 flex pointer-events-none z-0">
                   {days.map((d, i) => {
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
@@ -925,7 +1091,6 @@ export default function ApsSchedulingPage() {
                               className={`h-full border-r border-slate-300 relative ${isWeekend ? 'bg-slate-50/60' : ''}`} 
                               style={{ width: VIEW_CONFIG.dayColWidth }}
                           >
-                              {/* 12个区间 = 每2小时一条线 */}
                               {Array.from({ length: 12 }).map((_, idx) => (
                                   <div 
                                       key={idx} 
@@ -944,17 +1109,15 @@ export default function ApsSchedulingPage() {
                    className="absolute top-[76px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center"
                    style={{ left: guidePos.x }}
                  >
-                    {/* 时间标签 */}
                     <div className="bg-blue-600 text-white text-[10px] font-mono font-bold px-2 py-1 rounded shadow-lg -mt-8 whitespace-nowrap ring-2 ring-white z-50">
                        {guidePos.timeStr}
                     </div>
-                    {/* 底部光圈 */}
                     <div className="absolute bottom-0 w-3 h-3 bg-blue-500 rounded-full blur-[2px] opacity-50"></div>
                  </div>
                )}
 
                {/* D. 甘特条区域 */}
-               <div className="relative z-10 py-3 space-y-4 px-0">
+               <div className="relative z-10 py-3 px-0">
                   {filteredTasks.map((task) => {
                      const taskStartPx = getPosPx(task.start);
                      const taskEndPx = getPosPx(task.end);
@@ -964,9 +1127,10 @@ export default function ApsSchedulingPage() {
                      const connectionWidth = (validStart && validEnd) ? (taskEndPx - taskStartPx) : 0;
 
                      return (
+                        // 注意：这里需要添加 mb-4 来匹配左侧列表 SortableItem 的间距
                         <div 
                            key={task.id} 
-                           className="relative w-full"
+                           className="relative w-full mb-4"
                            style={{ height: VIEW_CONFIG.rowHeight }}
                         >
                            <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
