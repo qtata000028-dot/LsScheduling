@@ -27,7 +27,9 @@ import {
   ArrowRight,
   Timer,
   Factory,
-  ChevronLeft
+  ChevronLeft,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react";
 
 // dnd-kit imports
@@ -59,16 +61,17 @@ import { fetchApsMonths, runApsSchedule, ApsMonthItem, ApsScheduleWarning } from
 // 1. 核心配置 & 样式常量
 // ==========================================
 
-const VIEW_CONFIG = {
-  dayColWidth: 240,      // 列宽
-  leftColWidth: 400,     // 左侧固定列宽度
-  headerHeight: 76,      // 顶部日期栏高度
-  rowHeight: 180,        // 行高
-  workStartHour: 8,      // 08:00
-  workEndHour: 20,       // 20:00
+const BASE_CONFIG = {
+  hourColWidth: 60,       // 基准列宽
+  rowHeight: 160,         // 基准行高 (详细模式)
+  compactRowHeight: 56,   // 紧凑行高 (缩放模式)
+  leftColWidth: 320,      // 左侧列表稍微收窄一点，留更多空间给甘特图
+  headerHeight: 84,       
+  viewDays: 7             
 };
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const TIME_SLOTS = Array.from({ length: 12 }, (_, i) => i * 2); 
 
 // ==========================================
 // 2. 类型定义
@@ -123,6 +126,19 @@ interface GroupedSegment {
 // 3. 辅助工具
 // ==========================================
 
+function startOfDay(d: Date | number): Date {
+  const date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function startOfMonth(d: Date | number): Date {
+  const date = new Date(d);
+  date.setDate(1);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
 function safeDate(d: any): Date {
   if (d instanceof Date && isValid(d)) return d;
   if (!d) return new Date();
@@ -159,22 +175,6 @@ function safeDiffMins(end: any, start: any) {
   return differenceInMinutes(safeDate(end), safeDate(start));
 }
 
-function startOfMonth(date: Date): Date {
-  const d = new Date(date);
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  d.setMinutes(0);
-  d.setSeconds(0);
-  d.setMilliseconds(0);
-  return d;
-}
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 const getColor = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -191,102 +191,87 @@ const getColor = (str: string) => {
 // ==========================================
 // 4. DragActiveCard (拖拽时的“飞行”卡片)
 // ==========================================
-// 这是一个纯展示组件，用于 DragOverlay 中，不需要 Sortable 的逻辑
-const DragActiveCard: React.FC<{ task: UiTask }> = ({ task }) => {
+const DragActiveCard: React.FC<{ task: UiTask; isCompact: boolean; rowHeight: number }> = ({ task, isCompact, rowHeight }) => {
   const isDelay = task.status === 'DELAY';
 
   return (
     <div
       className={`
-        w-full rounded-2xl overflow-hidden flex flex-col border
+        w-full rounded-xl overflow-hidden flex flex-col border
         bg-white border-blue-400 shadow-2xl ring-2 ring-blue-500/30 scale-105
-        relative h-[180px]
+        relative transition-all duration-300
       `}
+      style={{ height: rowHeight }}
     >
-      {/* 侧边状态条 */}
       <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
           isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
       }`} />
 
-      {/* 拖拽时的抓手视觉 (放大) */}
-      <div
-         className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed rounded-full flex items-center justify-center z-30
-           cursor-grabbing border-blue-400 bg-blue-50/50 opacity-100"
-      >
-          <span className="text-5xl font-black select-none text-blue-600">
-             #
-          </span>
-      </div>
+      {/* 紧凑模式下不显示 # 抓手，节省空间 */}
+      {!isCompact && (
+        <div
+           className="absolute top-10 right-6 w-20 h-20 border-4 border-dashed rounded-full flex items-center justify-center z-30
+             cursor-grabbing border-blue-400 bg-blue-50/50 opacity-100"
+        >
+            <span className="text-4xl font-black select-none text-blue-600">#</span>
+        </div>
+      )}
 
-      <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start pointer-events-none">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Hash size={12} className="text-slate-400"/>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
-            </div>
-            <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]">
-              {task.billNo}
-            </div>
-          </div>
-          <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
-              {isDelay ? '延误' : '正常'}
-          </div>
-      </div>
-
-      <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0 pointer-events-none">
-          <div className="flex items-center gap-2 overflow-hidden">
-              <div className="p-1 bg-slate-100 text-blue-600 rounded">
-                <Tag size={12}/>
+      {isCompact ? (
+         // --- 紧凑模式布局 (只显示单号+产品) ---
+         <div className="relative z-10 px-4 flex items-center h-full gap-3">
+             <div className="flex flex-col min-w-0 flex-1 justify-center">
+                 <div className="text-sm font-black font-mono text-slate-800 truncate leading-none mb-1">
+                   {task.billNo}
+                 </div>
+                 <div className="flex items-center gap-1.5 overflow-hidden">
+                    <Tag size={10} className="text-blue-500 shrink-0"/>
+                    <span className="text-[10px] font-bold text-slate-500 truncate">{task.productId}</span>
+                 </div>
+             </div>
+             <div className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black border leading-none ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+                {isDelay ? '延' : '正'}
+             </div>
+         </div>
+      ) : (
+         // --- 完整模式布局 ---
+         <>
+          <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start pointer-events-none">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Hash size={12} className="text-slate-400"/>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
+                </div>
+                <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]">
+                  {task.billNo}
+                </div>
               </div>
-              <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+              <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+                  {isDelay ? '延误' : '正常'}
+              </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-1">
-            <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
-                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
-                  <Package size={10}/> 数量
-                </div>
-                <div className="font-mono text-sm font-black text-slate-700">
-                  {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
-                </div>
-            </div>
-
-            <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
-                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                  <Clock size={10}/> 交货日期
-                </div>
-                <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
-                  {safeFormat(task.dueTime, "yyyy-MM-dd")}
-                </div>
-            </div>
+          <div className="relative z-10 px-5 flex-1 flex flex-col gap-2 min-h-0 pointer-events-none">
+              <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="p-1 bg-slate-100 text-blue-600 rounded">
+                    <Tag size={12}/>
+                  </div>
+                  <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+              </div>
+              <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm mt-1">
+                  <div className="font-mono text-sm font-black text-slate-700">
+                    {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
+                  </div>
+              </div>
           </div>
-      </div>
-      
-      <div className="relative z-10 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center pointer-events-none">
-          <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
-            {task.processRoute.map((step, idx) => (
-                <React.Fragment key={idx}>
-                    <div className={`
-                        shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
-                        ${idx === 0 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : 'bg-white text-slate-600 border-slate-200'}
-                    `}>
-                        {step}
-                    </div>
-                    {idx < task.processRoute.length - 1 && (
-                        <ArrowRight size={10} className="text-slate-300 shrink-0" />
-                    )}
-                </React.Fragment>
-            ))}
-          </div>
-      </div>
+         </>
+      )}
     </div>
   );
 };
 
 // ==========================================
-// 5. Sortable Task Item (列表中的卡片)
+// 5. Sortable Task Item
 // ==========================================
 
 interface SortableTaskItemProps {
@@ -294,10 +279,12 @@ interface SortableTaskItemProps {
   index: number;
   isSelected: boolean;
   isDraggable: boolean;
+  isCompact: boolean;
+  rowHeight: number;
   onClick: () => void;
 }
 
-const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, onClick }: SortableTaskItemProps) => {
+const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, isCompact, rowHeight, onClick }: SortableTaskItemProps) => {
   const {
     attributes,
     listeners,
@@ -310,8 +297,8 @@ const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, onC
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    height: VIEW_CONFIG.rowHeight,
-    zIndex: isDragging ? 0 : (isSelected ? 20 : 1), // Dragging item (ghost) has low z-index
+    height: rowHeight,
+    zIndex: isDragging ? 0 : (isSelected ? 20 : 1),
     position: 'relative' as const,
   };
 
@@ -322,9 +309,9 @@ const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, onC
       ref={setNodeRef}
       style={style}
       className={`
-        w-full rounded-2xl overflow-hidden flex flex-col transition-all duration-200 border group
+        w-full rounded-xl overflow-hidden flex flex-col transition-all duration-300 border group
         ${isDragging 
-            ? 'opacity-30 grayscale border-dashed border-slate-300 bg-slate-50' // Ghost style
+            ? 'opacity-30 grayscale border-dashed border-slate-300 bg-slate-50' 
             : isSelected 
                 ? 'bg-blue-50 border-blue-400 shadow-xl' 
                 : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200'
@@ -332,93 +319,104 @@ const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, onC
       `}
       onClick={onClick}
     >
-      {/* Side Status Bar */}
       <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
           isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
       }`} />
 
-      {/* Drag Handle */}
-      <div 
-         className={`
-           absolute top-12 right-6 w-24 h-24 border-4 border-dashed rounded-full flex items-center justify-center 
-           z-30 transition-all duration-300
-           ${isDraggable 
-               ? 'cursor-grab active:cursor-grabbing border-slate-300 hover:border-blue-400 hover:bg-blue-50/50 hover:scale-110 opacity-40 hover:opacity-100' 
-               : 'pointer-events-none border-slate-300/60 opacity-15 rotate-12'
-           }
-         `}
-         {...attributes} 
-         {...listeners}
-         title={isDraggable ? "拖拽此处调整优先级" : "筛选模式下不可排序"}
-      >
-          <span className={`text-5xl font-black select-none ${isDraggable ? 'text-slate-500 group-hover:text-blue-600' : 'text-slate-400'}`}>
-              {(index + 1).toString().padStart(2, '0')}
-          </span>
-      </div>
+      {/* Drag Handle - 仅在非紧凑模式显示大号抓手 */}
+      {!isCompact && (
+        <div 
+           className={`
+             absolute top-10 right-4 w-16 h-16 border-4 border-dashed rounded-full flex items-center justify-center 
+             z-30 transition-all duration-300
+             ${isDraggable 
+                 ? 'cursor-grab active:cursor-grabbing border-slate-300 hover:border-blue-400 hover:bg-blue-50/50 hover:scale-110 opacity-40 hover:opacity-100' 
+                 : 'pointer-events-none border-slate-300/60 opacity-15 rotate-12'
+             }
+           `}
+           {...attributes} 
+           {...listeners}
+           title={isDraggable ? "拖拽此处调整优先级" : "筛选模式下不可排序"}
+        >
+            <span className={`text-3xl font-black select-none ${isDraggable ? 'text-slate-500 group-hover:text-blue-600' : 'text-slate-400'}`}>
+                {(index + 1).toString().padStart(2, '0')}
+            </span>
+        </div>
+      )}
 
-      <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start pointer-events-none">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Hash size={12} className="text-slate-400"/>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
-            </div>
-            <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]" title={task.billNo}>
-              {task.billNo}
-            </div>
-          </div>
-          <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
-              {isDelay ? '延误' : '正常'}
-          </div>
-      </div>
+      {/* 隐形抓手：在紧凑模式下，整个卡片右侧边缘可以作为抓手，或者简单点，整个卡片需要按住特定区域 */}
+      {isCompact && isDraggable && (
+         <div className="absolute right-0 top-0 bottom-0 w-8 z-30 cursor-grab active:cursor-grabbing hover:bg-slate-50 flex items-center justify-center border-l border-dashed border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity" {...attributes} {...listeners}>
+            <span className="text-[10px] font-bold text-slate-300">#{(index + 1)}</span>
+         </div>
+      )}
 
-      <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0 pointer-events-none">
-          <div className="flex items-center gap-2 overflow-hidden">
-              <div className="p-1 bg-slate-100 text-blue-600 rounded">
-                <Tag size={12}/>
+      {isCompact ? (
+         // === 紧凑模式内容 ===
+         <div className="relative z-10 px-4 flex items-center h-full gap-3 pointer-events-none">
+             <div className="flex flex-col min-w-0 flex-1 justify-center">
+                 <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-black font-mono text-slate-800 truncate leading-none" title={task.billNo}>
+                       {task.billNo}
+                    </span>
+                 </div>
+                 <div className="flex items-center gap-1.5 overflow-hidden mt-1 opacity-70">
+                    <Tag size={10} className="text-blue-500 shrink-0"/>
+                    <span className="text-[10px] font-bold text-slate-600 truncate" title={task.productId}>{task.productId}</span>
+                 </div>
+             </div>
+             <div className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black border leading-none ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+                {isDelay ? '延' : '正'}
+             </div>
+         </div>
+      ) : (
+         // === 完整模式内容 ===
+         <>
+          <div className="relative z-10 px-5 pt-4 pb-2 flex justify-between items-start pointer-events-none">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Hash size={12} className="text-slate-400"/>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
+                </div>
+                <div className="text-lg font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[220px]" title={task.billNo}>
+                  {task.billNo}
+                </div>
               </div>
-              <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+              <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+                  {isDelay ? '延误' : '正常'}
+              </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-1">
-            <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
-                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
-                  <Package size={10}/> 数量
-                </div>
-                <div className="font-mono text-sm font-black text-slate-700">
-                  {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
-                </div>
-            </div>
+          <div className="relative z-10 px-5 flex-1 flex flex-col gap-3 min-h-0 pointer-events-none">
+              <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="p-1 bg-slate-100 text-blue-600 rounded">
+                    <Tag size={12}/>
+                  </div>
+                  <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
+              </div>
 
-            <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
-                <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                  <Clock size={10}/> 交货日期
-                </div>
-                <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
-                  {safeFormat(task.dueTime, "yyyy-MM-dd")}
-                </div>
-            </div>
-          </div>
-      </div>
-      
-      <div className="relative z-10 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center pointer-events-none">
-          <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
-            {task.processRoute.map((step, idx) => (
-                <React.Fragment key={idx}>
-                    <div className={`
-                        shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
-                        ${idx === 0 
-                            ? 'bg-blue-600 text-white border-blue-600' 
-                            : 'bg-white text-slate-600 border-slate-200'}
-                    `}>
-                        {step}
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
+                      <Package size={10}/> 数量
                     </div>
-                    {idx < task.processRoute.length - 1 && (
-                        <ArrowRight size={10} className="text-slate-300 shrink-0" />
-                    )}
-                </React.Fragment>
-            ))}
+                    <div className="font-mono text-sm font-black text-slate-700">
+                      {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
+                    </div>
+                </div>
+
+                <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
+                    <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                      <Clock size={10}/> 交货日期
+                    </div>
+                    <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                      {safeFormat(task.dueTime, "yyyy-MM-dd")}
+                    </div>
+                </div>
+              </div>
           </div>
-      </div>
+         </>
+      )}
     </div>
   );
 });
@@ -426,6 +424,7 @@ const SortableTaskItem = React.memo(({ task, index, isSelected, isDraggable, onC
 // ==========================================
 // 6. 任务详情抽屉
 // ==========================================
+// (此处保持不变)
 const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> = ({ task, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [expandedIndices, setExpandedIndices] = useState<Set<number>>(new Set());
@@ -638,10 +637,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                         </div>
                       );
                    })}
-                   <div className="relative pl-12 pt-2 opacity-60">
-                      <div className="absolute left-[48px] top-3 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-300 z-20"></div>
-                      <div className="text-sm font-bold text-slate-400 italic pl-1">流程结束</div>
-                   </div>
                 </div>
              </div>
           </div>
@@ -663,6 +658,19 @@ export default function ApsSchedulingPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(""); 
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false);
   
+  // 缩放状态 (0.4 ~ 1.0)
+  const [zoom, setZoom] = useState(1);
+  const layout = useMemo(() => {
+     const isCompact = zoom < 0.6; // 缩放到 0.6 以下进入紧凑模式
+     return {
+        isCompact,
+        hourWidth: BASE_CONFIG.hourColWidth * zoom, // 列宽等比缩放
+        dayWidth: BASE_CONFIG.hourColWidth * 24 * zoom,
+        rowHeight: isCompact ? BASE_CONFIG.compactRowHeight : BASE_CONFIG.rowHeight, // 行高阶梯变化
+        leftColWidth: BASE_CONFIG.leftColWidth // 左侧宽度固定
+     }
+  }, [zoom]);
+
   // 拖拽状态
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeTask = useMemo(() => tasks.find((t) => t.id === activeId), [activeId, tasks]);
@@ -688,17 +696,14 @@ export default function ApsSchedulingPage() {
     })
   );
   
-  // 视图范围：45天
-  const viewEnd = useMemo(() => {
-     return addDays(viewStart, 45);
-  }, [viewStart]);
-  
+  // 视图范围：仅 7 天
   const days = useMemo(() => {
-    if (!isValid(viewStart) || !isValid(viewEnd) || viewEnd < viewStart) return [];
-    return eachDayOfInterval({ start: viewStart, end: viewEnd });
-  }, [viewStart, viewEnd]);
+    if (!isValid(viewStart)) return [];
+    const end = addDays(viewStart, BASE_CONFIG.viewDays);
+    return eachDayOfInterval({ start: viewStart, end: addDays(end, -1) });
+  }, [viewStart]);
 
-  const ganttTotalWidth = days.length * VIEW_CONFIG.dayColWidth;
+  const ganttTotalWidth = days.length * layout.dayWidth;
 
   useEffect(() => {
     fetchApsMonths().then(res => {
@@ -732,11 +737,11 @@ export default function ApsSchedulingPage() {
 
   const loadSchedule = async (orderedIds?: number[]) => {
     if (!selectedMonth) return;
-    setLoading(true); // Ensure loading state is set
+    setLoading(true);
     try {
       const res = await runApsSchedule({ 
         fromMc: selectedMonth,
-        detailOrder: orderedIds // 传入排序后的 ID
+        detailOrder: orderedIds 
       });
       const map = new Map<number, UiSegment[]>();
       const warns = new Map<number, ApsScheduleWarning[]>();
@@ -782,7 +787,6 @@ export default function ApsSchedulingPage() {
          taskIds = Array.from(map.keys());
       }
       
-      // 补充 map 中有但 orderedIds 中没有的 (防止数据丢失)
       const allMapKeys = Array.from(map.keys());
       const missingKeys = allMapKeys.filter(k => !taskIds.includes(k));
       taskIds = [...taskIds, ...missingKeys];
@@ -802,7 +806,7 @@ export default function ApsSchedulingPage() {
 
          const detailInfo = res.details?.find(d => Number(getPropSmart(d, ['detailId', 'DetailId', 'did'])) === did);
          newTasks.push({
-           id: String(did), // dnd-kit uses string IDs
+           id: String(did),
            billNo: getPropSmart(detailInfo, ['billNo', 'BillNo']) || "无单号",
            detailId: did,
            productId: getPropSmart(detailInfo, ['productId', 'ProductId']) || "N/A", 
@@ -824,7 +828,6 @@ export default function ApsSchedulingPage() {
       setTasks(newTasks);
 
       if (earliestStart !== Infinity && !orderedIds) {
-         // Only reset view on initial load, not on reorder
          const d = new Date(earliestStart);
          if (selectedMonth) {
              const match = selectedMonth.match(/(\d{4})年(\d{1,2})月/);
@@ -845,33 +848,20 @@ export default function ApsSchedulingPage() {
     }
   };
 
-  useEffect(() => { loadSchedule(); }, [selectedMonth]);
-
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (active.id !== over?.id) {
       setTasks((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over?.id);
-        
         const newOrder = arrayMove(items, oldIndex, newIndex);
-        
-        // 触发后端排程更新
         const newDetailIds = newOrder.map(t => t.detailId);
-        
-        // 💡 立即设置 Loading 状态，让用户感知到排程正在重算
         setLoading(true);
-        // 使用 setTimeout 稍微延后一点点请求，避免 UI 动画卡顿，
-        // 但确保 loadSchedule 真正被调用并传递了 ID
-        setTimeout(() => {
-            loadSchedule(newDetailIds);
-        }, 50);
-
+        setTimeout(() => { loadSchedule(newDetailIds); }, 50);
         return newOrder;
       });
     }
@@ -888,57 +878,31 @@ export default function ApsSchedulingPage() {
     return res;
   }, [tasks, keyword, onlyDelayed]);
 
-  // Can only drag if we are viewing the full list (no filters active)
   const isDragEnabled = !keyword && !onlyDelayed;
 
-  const getSegmentStyle = (segStart: Date, segEnd: Date) => {
-    const startH = segStart.getHours() + segStart.getMinutes() / 60;
-    const endH = segEnd.getHours() + segEnd.getMinutes() / 60;
-    
-    // 工作时间标准化 (0-1)
-    const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
-    
-    // 裁剪视图
-    const visibleStartH = Math.max(VIEW_CONFIG.workStartHour, Math.min(VIEW_CONFIG.workEndHour, startH));
-    const visibleEndH = Math.max(VIEW_CONFIG.workStartHour, Math.min(VIEW_CONFIG.workEndHour, endH));
-    
-    if (visibleEndH <= visibleStartH) return null; 
-
-    const leftPercent = (visibleStartH - VIEW_CONFIG.workStartHour) / totalH;
-    const widthPercent = (visibleEndH - visibleStartH) / totalH;
-    
-    return { 
-        leftPercent: leftPercent * 100, 
-        widthPercent: widthPercent * 100 
-    };
-  };
-
+  // New Linear Position Calculation
   const getPosPx = (date: Date) => {
-    const dayInd = differenceInCalendarDays(date, viewStart);
-    if (dayInd < 0 || dayInd >= days.length) return -9999;
+    const diffDays = differenceInCalendarDays(date, viewStart);
+    if (diffDays < 0 || diffDays >= days.length) return -9999;
 
-    const h = date.getHours() + date.getMinutes() / 60;
-    const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
-    let p = (h - VIEW_CONFIG.workStartHour) / totalH;
-    p = Math.max(0, Math.min(1, p));
-    
-    return (dayInd + p) * VIEW_CONFIG.dayColWidth;
+    const hours = date.getHours();
+    const mins = date.getMinutes();
+    const totalHours = hours + (mins / 60);
+
+    const dayStartPx = diffDays * layout.dayWidth;
+    const hourPx = totalHours * layout.hourWidth;
+
+    return dayStartPx + hourPx;
   };
 
-  const handlePrevMonth = () => {
-    const d = addMonths(viewStart, -1);
-    setViewStart(startOfMonth(d));
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    setSelectedMonth(`${y}年${m}月`);
+  const handlePrevRange = () => {
+    const d = addDays(viewStart, -7);
+    setViewStart(d);
   };
 
-  const handleNextMonth = () => {
-    const d = addMonths(viewStart, 1);
-    setViewStart(startOfMonth(d));
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    setSelectedMonth(`${y}年${m}月`);
+  const handleNextRange = () => {
+    const d = addDays(viewStart, 7);
+    setViewStart(d);
   };
 
   return (
@@ -949,81 +913,77 @@ export default function ApsSchedulingPage() {
       {/* --- 顶部工具栏 --- */}
       <div className="relative flex items-center justify-between px-6 py-4 shrink-0 z-50 h-[76px] border-b border-white/40">
          <div className="absolute inset-x-0 top-0 bottom-0 bg-white/40 backdrop-blur-xl -z-10"></div>
-
          <div className="flex items-center gap-4">
-            
-            {/* 合并后的日期选择器 */}
             <div className="relative" ref={dropdownRef}>
                 <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm transition-shadow hover:shadow-md hover:border-blue-200">
-                    <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" title="上个月">
+                    <button onClick={handlePrevRange} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" title="上一周">
                         <ChevronLeft size={16}/>
                     </button>
                     
-                    {/* 中间区域：显示当前月份，点击展开下拉 */}
                     <div 
                         onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
-                        className="px-4 py-1.5 flex flex-col items-center cursor-pointer hover:bg-slate-50 rounded-lg group select-none transition-colors min-w-[120px]"
+                        className="px-4 py-1.5 flex flex-col items-center cursor-pointer hover:bg-slate-50 rounded-lg group select-none transition-colors min-w-[140px]"
                     >
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 group-hover:text-blue-500 transition-colors">
-                            当前排程周期
+                            {selectedMonth || '当前周期'}
                         </div>
                         <div className="flex items-center gap-2 text-sm font-black font-mono text-slate-700 group-hover:text-blue-700 transition-colors">
-                            <span>{selectedMonth || format(viewStart, 'yyyy年MM月')}</span>
+                            <span>{format(viewStart, 'MM/dd')} - {format(addDays(viewStart, 6), 'MM/dd')}</span>
                             <ChevronDown size={12} className={`opacity-40 group-hover:opacity-100 transition-all ${isMonthSelectorOpen ? 'rotate-180' : ''}`}/>
                         </div>
                     </div>
 
-                    <button onClick={handleNextMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" title="下个月">
+                    <button onClick={handleNextRange} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" title="下一周">
                         <ChevronRight size={16}/>
                     </button>
                 </div>
-
-                {/* 下拉面板 */}
+                {/* Month Selector Dropdown (Existing logic) */}
                 {isMonthSelectorOpen && (
                  <div className="absolute top-full left-0 mt-3 w-64 bg-white/90 backdrop-blur-xl border border-white/60 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in zoom-in-95 origin-top-left ring-1 ring-slate-100">
-                    <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">
-                        可用 APS 排程周期
-                    </div>
+                    <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">APS 周期选择</div>
                     <div className="max-h-[280px] overflow-y-auto custom-scrollbar">
                        {months.length > 0 ? months.map(m => (
-                          <div 
-                            key={m.mc} 
-                            onClick={() => handleSelectMonth(m.mc)} 
-                            className={`
-                                px-3 py-2.5 rounded-xl text-xs cursor-pointer flex justify-between items-center transition-all mb-1
-                                ${selectedMonth === m.mc 
-                                    ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100' 
-                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
-                            `}
-                          >
+                          <div key={m.mc} onClick={() => handleSelectMonth(m.mc)} className={`px-3 py-2.5 rounded-xl text-xs cursor-pointer flex justify-between items-center transition-all mb-1 ${selectedMonth === m.mc ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
                              <div className="flex items-center gap-2">
                                 <CalendarIcon size={14} className={selectedMonth === m.mc ? 'text-blue-500' : 'text-slate-400'}/>
                                 <span className="font-bold">{m.mc}</span>
                              </div>
-                             <span className={`text-[10px] px-2 py-0.5 rounded-md border ${selectedMonth === m.mc ? 'bg-white text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                {m.orderCount || 0}单
-                             </span>
                           </div>
-                       )) : (
-                           <div className="p-4 text-center text-xs text-slate-400">暂无排程数据</div>
-                       )}
+                       )) : <div className="p-4 text-center text-xs text-slate-400">暂无数据</div>}
                     </div>
                  </div>
                )}
             </div>
-
-            <div className="h-6 w-px bg-slate-200 mx-2"></div>
-
-            <div className="relative group">
-               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-               <input value={keyword} onChange={e => setKeyword(e.target.value)} className="pl-10 pr-4 py-2 w-64 bg-white border border-slate-200 rounded-xl text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all outline-none shadow-sm" placeholder="搜索单号..." />
+            
+            {/* 缩放控制器 */}
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm gap-1">
+               <button 
+                  onClick={() => setZoom(z => Math.max(0.4, z - 0.2))} 
+                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" 
+                  title="缩小视图 (宏观)"
+                  disabled={zoom <= 0.4}
+                >
+                  <ZoomOut size={16}/>
+               </button>
+               <div className="w-10 text-center text-xs font-mono font-bold text-slate-600 select-none">
+                  {Math.round(zoom * 100)}%
+               </div>
+               <button 
+                  onClick={() => setZoom(z => Math.min(1.0, z + 0.2))} 
+                  className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors" 
+                  title="放大视图 (详细)"
+                  disabled={zoom >= 1.0}
+               >
+                  <ZoomIn size={16}/>
+               </button>
             </div>
 
-            <button onClick={() => setOnlyDelayed(!onlyDelayed)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${onlyDelayed ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-               <Filter size={14} /> <span>只看延误</span>
-            </button>
+            <div className="h-6 w-px bg-slate-200 mx-2"></div>
+            <div className="relative group">
+               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+               <input value={keyword} onChange={e => setKeyword(e.target.value)} className="pl-10 pr-4 py-2 w-56 bg-white border border-slate-200 rounded-xl text-sm font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all outline-none shadow-sm" placeholder="搜索单号..." />
+            </div>
          </div>
-
          <button onClick={() => loadSchedule()} disabled={loading} className="flex items-center gap-2 px-6 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700 shadow-lg shadow-slate-400/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all">
             <PlayCircle size={16} className={loading ? "animate-spin" : ""} /> 
             <span className="text-sm font-bold">开始排程</span>
@@ -1032,50 +992,34 @@ export default function ApsSchedulingPage() {
 
       {/* --- 主滚动区域 --- */}
       <div className="flex-1 flex overflow-hidden relative">
-         
          <DndContext 
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
          >
-            {/* 1. 左侧固定列表 (Task List) */}
-            <div 
-                className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
-                style={{ width: VIEW_CONFIG.leftColWidth }}
-            >
-                {/* Header */}
-                <div className="h-[76px] shrink-0 border-b border-white/50 flex items-center px-6 bg-white/50 backdrop-blur-md">
+            {/* 1. 左侧列表 */}
+            <div className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300" style={{ width: layout.leftColWidth }}>
+                <div className="h-[84px] shrink-0 border-b border-white/50 flex items-center px-6 bg-white/50 backdrop-blur-md">
                    <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-lg">
-                      <Layers className="text-blue-600" size={20}/>
-                      排程任务
+                      <Layers className="text-blue-600" size={20}/> 排程任务
                       <span className="ml-2 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
-                      {loading && <span className="text-xs text-blue-500 animate-pulse ml-2">正在排程...</span>}
+                      {loading && <span className="text-xs text-blue-500 animate-pulse ml-2">排程计算中...</span>}
                    </div>
                 </div>
-                
-                {/* List Body [Modified for Sync & Hidden Scroll] */}
-                <div 
-                   id="left-panel-scroll"
-                   className="flex-1 overflow-hidden" 
-                   onWheel={(e) => {
-                       const right = document.getElementById('right-panel-scroll');
-                       if (right) right.scrollTop += e.deltaY;
-                   }}
-                >
-                   <div className="py-3 space-y-4 px-4">
-                     <SortableContext 
-                        items={filteredTasks.map(t => t.id)}
-                        strategy={verticalListSortingStrategy}
-                     >
+                <div id="left-panel-scroll" className="flex-1 overflow-hidden" onWheel={(e) => { const right = document.getElementById('right-panel-scroll'); if (right) right.scrollTop += e.deltaY; }}>
+                   <div className="py-3 space-y-2 px-3">
+                     <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                        {filteredTasks.map((task, index) => (
                           <SortableTaskItem 
-                             key={task.id}
-                             task={task}
-                             index={index}
-                             isSelected={selectedTask?.id === task.id}
-                             isDraggable={isDragEnabled}
-                             onClick={() => setSelectedTask(task)}
+                             key={task.id} 
+                             task={task} 
+                             index={index} 
+                             isSelected={selectedTask?.id === task.id} 
+                             isDraggable={isDragEnabled} 
+                             isCompact={layout.isCompact}
+                             rowHeight={layout.rowHeight}
+                             onClick={() => setSelectedTask(task)} 
                           />
                        ))}
                      </SortableContext>
@@ -1085,133 +1029,102 @@ export default function ApsSchedulingPage() {
             </div>
          </DndContext>
 
-         {/* 2. 右侧甘特图 (Gantt Chart) - 可横向滚动 */}
-         <div 
-            id="right-panel-scroll"
-            className="flex-1 overflow-auto custom-scrollbar relative bg-slate-50/30"
-            onScroll={(e) => {
-               const leftPanel = document.getElementById('left-panel-scroll');
-               if(leftPanel) leftPanel.scrollTop = e.currentTarget.scrollTop;
-            }}
-         >
-            <div style={{ width: Math.max(1000, ganttTotalWidth), minHeight: '100%' }} className="relative">
+         {/* 2. 右侧 7 天 x 24 小时 甘特图 */}
+         <div id="right-panel-scroll" className="flex-1 overflow-auto custom-scrollbar relative bg-slate-50/30" onScroll={(e) => { const leftPanel = document.getElementById('left-panel-scroll'); if(leftPanel) leftPanel.scrollTop = e.currentTarget.scrollTop; }}>
+            <div style={{ width: ganttTotalWidth, minHeight: '100%' }} className="relative transition-all duration-300">
                
-               {/* A. 顶部日期头 (Sticky) */}
-               <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[76px]">
+               {/* A. Sticky Header (2 Rows) */}
+               <div className="sticky top-0 z-40 flex bg-white/90 backdrop-blur-md shadow-sm h-[84px] border-b border-slate-200">
                    {days.map((day, i) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                       const isToday = isSameDay(day, new Date());
                       return (
-                        <div 
-                          key={i} 
-                          className={`
-                            shrink-0 flex flex-col justify-center items-center relative border-r border-slate-200
-                            ${isWeekend ? 'bg-slate-100/60' : 'bg-white/40'}
-                          `}
-                          style={{ width: VIEW_CONFIG.dayColWidth, height: '100%' }}
-                        >
-                           <div className={`text-[10px] font-bold uppercase mb-1 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                             {WEEKDAYS[day.getDay()]}
+                        <div key={i} className="shrink-0 flex flex-col border-r border-slate-300/80 transition-all duration-300" style={{ width: layout.dayWidth }}>
+                           {/* Row 1: Date */}
+                           <div className={`h-10 flex items-center justify-center gap-2 border-b border-slate-100 ${isToday ? 'bg-blue-50/50 text-blue-700' : (isWeekend ? 'bg-slate-100/40 text-slate-600' : 'text-slate-700')}`}>
+                              <span className="text-xs font-bold uppercase tracking-wider opacity-70">{WEEKDAYS[day.getDay()]}</span>
+                              <span className="text-base font-black font-mono tracking-tight">{format(day, "MM-dd")}</span>
+                              {isToday && layout.dayWidth > 100 && <span className="ml-1 px-1.5 py-0.5 bg-blue-600 text-white text-[9px] font-bold rounded">TODAY</span>}
                            </div>
-                           <div className={`text-xl font-black font-mono leading-none tracking-tight ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
-                             {format(day, "MM-dd")}
+                           {/* Row 2: Hours (2-hour slots) */}
+                           <div className="flex h-[44px]">
+                              {TIME_SLOTS.map(h => (
+                                 <div 
+                                   key={h} 
+                                   className="flex-1 border-r border-slate-200 flex items-center justify-center text-[11px] font-mono font-bold text-slate-400 last:border-0 hover:bg-slate-50 transition-colors cursor-crosshair bg-slate-50/30 overflow-hidden" 
+                                   title={`${h}:00 - ${h+2}:00`}
+                                 >
+                                     {layout.hourWidth > 20 ? `${h.toString().padStart(2, '0')}` : ''}
+                                 </div>
+                              ))}
                            </div>
-                           {isToday && <div className="absolute bottom-0 inset-x-0 h-0.5 bg-blue-500"></div>}
                         </div>
                       );
                    })}
                </div>
 
-               {/* B. 甘特条区域 */}
-               <div className="relative py-3 space-y-4 px-0">
-                  {/* 背景网格列 - 加深分割线 & 周末深色背景 */}
-                  <div className="absolute inset-0 flex pointer-events-none z-0 pt-[10px]"> 
-                     {days.map((d, i) => {
-                        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                        return (
-                          <div 
-                             key={i} 
-                             className={`h-full border-r border-slate-300/60 ${isWeekend ? 'bg-slate-100/50' : ''}`} 
-                             style={{ width: VIEW_CONFIG.dayColWidth }} 
-                          />
-                        )
-                     })}
+               {/* B. Grid & Tasks */}
+               <div className="relative py-3 space-y-2 px-0">
+                  {/* Background Grid Lines */}
+                  <div className="absolute inset-0 flex pointer-events-none z-0 pt-[12px]"> 
+                     {days.map((d, i) => (
+                        <div key={i} className="h-full flex border-r-2 border-slate-300 transition-all duration-300" style={{ width: layout.dayWidth }}>
+                           {TIME_SLOTS.map(h => (
+                               <div 
+                                 key={h} 
+                                 className="h-full flex-1 border-r border-dashed border-slate-300/60 first:border-l-0 last:border-r-0 hover:bg-slate-50/10"
+                               ></div>
+                           ))}
+                        </div>
+                     ))}
                   </div>
 
+                  {/* Tasks Rows */}
                   {filteredTasks.map((task) => {
                      const taskStartPx = getPosPx(task.start);
                      const taskEndPx = getPosPx(task.end);
-                     
-                     const validStart = taskStartPx > -5000;
-                     const validEnd = taskEndPx > -5000;
-                     const connectionWidth = (validStart && validEnd) ? (taskEndPx - taskStartPx) : 0;
+                     const isValid = taskStartPx > -5000 && taskEndPx > -5000;
+                     const width = isValid ? Math.max(0, taskEndPx - taskStartPx) : 0;
 
                      return (
-                        <div 
-                           key={task.id} 
-                           className="relative w-full"
-                           style={{ height: VIEW_CONFIG.rowHeight }}
-                        >
-                           {/* 连接线 */}
-                           <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
-                               {connectionWidth > 0 && (
-                                  <div 
-                                    className="absolute h-full z-0 flex items-center" 
-                                    style={{ left: taskStartPx, width: connectionWidth }}
-                                  >
-                                     <div className="absolute inset-x-0 h-[4px] bg-slate-200/60 rounded-full"></div>
-                                  </div>
-                               )}
-                           </div>
+                        <div key={task.id} className="relative w-full transition-all duration-300" style={{ height: layout.rowHeight }}>
+                           {/* Connection Line */}
+                           {width > 0 && !layout.isCompact && (
+                              <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none -translate-y-1/2">
+                                  <div className="absolute h-[4px] bg-slate-200/50 rounded-full" style={{ left: taskStartPx, width: width }} />
+                              </div>
+                           )}
 
-                           {/* 工序段 Segments [视觉回归：鲜艳流光] */}
+                           {/* Segments */}
                            {task.segments.map(seg => {
-                                 const dayIndex = differenceInCalendarDays(seg.start, viewStart);
-                                 if (dayIndex < 0 || dayIndex >= days.length) return null;
-
-                                 const style = getSegmentStyle(seg.start, seg.end);
-                                 if (!style) return null;
-
-                                 const baseLeft = dayIndex * VIEW_CONFIG.dayColWidth;
-                                 const pixelOffset = (VIEW_CONFIG.dayColWidth * style.leftPercent) / 100;
-                                 const pixelWidth = Math.max(4, (VIEW_CONFIG.dayColWidth * style.widthPercent) / 100);
+                                 const startPx = getPosPx(seg.start);
+                                 const endPx = getPosPx(seg.end);
+                                 if (startPx < -5000 || endPx < -5000) return null;
+                                 
+                                 const segWidth = Math.max(2, endPx - startPx);
 
                                  return (
                                     <div 
                                        key={seg.uniqueKey}
-                                       className="absolute top-1/2 -translate-y-1/2 h-[64px] z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar"
-                                       style={{
-                                          left: baseLeft + pixelOffset,
-                                          width: pixelWidth,
-                                       }}
+                                       className={`absolute top-1/2 -translate-y-1/2 z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar ${layout.isCompact ? 'h-[24px]' : 'h-[64px]'}`}
+                                       style={{ left: startPx, width: segWidth }}
                                     >
                                        <div 
-                                          className={`
-                                            w-full h-full rounded-2xl cursor-pointer pointer-events-auto
-                                            ${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border}
-                                            border flex flex-col items-center justify-center
-                                            relative overflow-hidden backdrop-blur-sm
-                                          `}
+                                          className={`w-full h-full ${layout.isCompact ? 'rounded' : 'rounded-lg'} cursor-pointer pointer-events-auto ${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border} border flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm`}
                                           onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }}
                                        >
-                                          {/* 顶部高光 (Shiny Top) */}
-                                          <div className="absolute inset-x-0 top-0 h-[40%] bg-white/20 rounded-t-2xl pointer-events-none"></div>
-                                          
-                                          {pixelWidth > 30 && (
+                                          {!layout.isCompact && <div className="absolute inset-x-0 top-0 h-[40%] bg-white/20 rounded-t-lg pointer-events-none"></div>}
+                                          {segWidth > 30 && (
                                              <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
-                                                <div className={`text-[11px] font-black drop-shadow-sm truncate w-full px-1 ${seg.color.text}`}>{seg.name}</div>
-                                                {pixelWidth > 60 && (
-                                                    <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>
-                                                        {safeFormat(seg.start)}
-                                                    </div>
-                                                )}
+                                                {!layout.isCompact && <div className={`text-[10px] font-black drop-shadow-sm truncate w-full px-0.5 ${seg.color.text}`}>{seg.name}</div>}
+                                                {/* 紧凑模式下如果宽度够，显示极简信息，否则不显示 */}
                                              </div>
                                           )}
                                        </div>
-                                       
                                        {/* Tooltip */}
                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-800/90 backdrop-blur text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xl opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-opacity z-50">
                                           {seg.name} ({formatDuration(seg.durationMins)})
+                                          <div className="font-mono text-[9px] opacity-75 mt-0.5 text-center">{safeFormat(seg.start)} - {safeFormat(seg.end)}</div>
                                           <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800/90 rotate-45"></div>
                                        </div>
                                     </div>
@@ -1227,16 +1140,8 @@ export default function ApsSchedulingPage() {
       </div>
 
       {createPortal(
-        <DragOverlay
-          modifiers={[snapCenterToCursor]}
-          dropAnimation={{
-            sideEffects: defaultDropAnimationSideEffects({
-              styles: { active: { opacity: '0.3' } },
-            }),
-          }}
-          className="z-[9999] cursor-grabbing pointer-events-none"
-        >
-          {activeTask ? <DragActiveCard task={activeTask} /> : null}
+        <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.3' } } }) }} className="z-[9999] cursor-grabbing pointer-events-none">
+          {activeTask ? <DragActiveCard task={activeTask} isCompact={layout.isCompact} rowHeight={layout.rowHeight} /> : null}
         </DragOverlay>,
         document.body
       )}
@@ -1244,15 +1149,9 @@ export default function ApsSchedulingPage() {
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 12px; height: 14px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.5); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { 
-           background: #cbd5e1; border: 3px solid transparent; 
-           background-clip: content-box; border-radius: 99px; 
-           transition: background 0.2s;
-        }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border: 3px solid transparent; background-clip: content-box; border-radius: 99px; transition: background 0.2s; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
         .custom-scrollbar::-webkit-scrollbar-corner { background: transparent; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );
