@@ -464,14 +464,14 @@ const TaskCard: React.FC<{
             isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
         }`} />
 
-        {/* 背景装饰序号 - 现在您可以透过它直接拖动卡片 */}
-        <div className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed border-slate-300/60 rounded-full flex items-center justify-center opacity-15 pointer-events-none rotate-12 z-10 group-hover:opacity-40 group-hover:border-blue-300 group-hover:text-blue-400 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
+        {/* 背景装饰序号 - 修改：z-index 提升到 30 (最上层)，防止被内容遮挡，同时调整透明度保证不干扰阅读 */}
+        <div className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed border-slate-300/50 rounded-full flex items-center justify-center opacity-20 pointer-events-none rotate-12 z-30 group-hover:opacity-30 group-hover:border-blue-300 group-hover:text-blue-400 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
             <span className="text-5xl font-black text-slate-400 select-none">
                 {(index + 1).toString().padStart(2, '0')}
             </span>
         </div>
 
-        {/* 头部：单号与状态 */}
+        {/* 头部：单号与状态 - z-20 */}
         <div className="relative z-20 px-4 pt-4 pb-2 flex justify-between items-start pl-5">
            <div className="flex items-start gap-3">
              {/* 
@@ -498,7 +498,7 @@ const TaskCard: React.FC<{
            </div>
         </div>
 
-        {/* 内容详情 */}
+        {/* 内容详情 - z-20，背景透明度调整以配合底层序号展示 */}
         <div className="relative z-20 px-5 flex-1 flex flex-col gap-3 min-h-0">
            <div className="flex items-center gap-2 overflow-hidden">
                 <div className="p-1 bg-slate-100 text-blue-600 rounded">
@@ -508,7 +508,8 @@ const TaskCard: React.FC<{
            </div>
 
            <div className="grid grid-cols-2 gap-3 mt-1">
-              <div className="bg-slate-50/80 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
+              {/* 背景透明度调整为 /40，增强通透感 */}
+              <div className="bg-slate-50/40 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
                  <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
                     <Package size={10}/> 数量
                  </div>
@@ -517,7 +518,7 @@ const TaskCard: React.FC<{
                  </div>
               </div>
 
-              <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'}`}>
+              <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/40 border-slate-100'}`}>
                  <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
                     <Clock size={10}/> 交货日期
                  </div>
@@ -528,8 +529,8 @@ const TaskCard: React.FC<{
            </div>
         </div>
         
-        {/* 底部工艺流程条 */}
-        <div className="relative z-20 mt-auto h-[48px] bg-slate-50/80 border-t border-slate-100 overflow-hidden flex items-center">
+        {/* 底部工艺流程条 - z-20，背景透明度调整 */}
+        <div className="relative z-20 mt-auto h-[48px] bg-slate-50/40 border-t border-slate-100 overflow-hidden flex items-center">
            <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
               {task.processRoute.map((step, idx) => (
                   <React.Fragment key={idx}>
@@ -547,7 +548,8 @@ const TaskCard: React.FC<{
                   </React.Fragment>
               ))}
            </div>
-           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
+           {/* 渐变遮罩也相应调淡 */}
+           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50/80 to-transparent pointer-events-none"></div>
         </div>
     </div>
   );
