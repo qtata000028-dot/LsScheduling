@@ -33,7 +33,11 @@ import {
   ChevronUp,
   ArrowRight,
   Timer,
-  GripVertical
+  GripVertical,
+  QrCode,
+  Barcode,
+  FileDigit,
+  LayoutList
 } from "lucide-react";
 import { 
   DndContext, 
@@ -242,7 +246,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
   return createPortal(
     <>
       <div 
-        className={`fixed inset-0 bg-slate-900/30 backdrop-blur-[2px] z-[9998] transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/20 backdrop-blur-[2px] z-[9998] transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
       <div 
@@ -254,17 +258,25 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
         `}
       >
         {task && (
-          <div className="flex flex-col h-full bg-slate-50/50">
+          <div className="flex flex-col h-full bg-slate-50/50 relative">
+             {/* 装饰背景 */}
+             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100/40 rounded-full blur-3xl -z-10 pointer-events-none mix-blend-multiply"></div>
+
              {/* Header */}
-             <div className="shrink-0 p-6 bg-white border-b border-slate-100 z-10 relative">
-                <div className="flex items-center justify-between mb-2">
+             <div className="shrink-0 p-6 bg-white/80 backdrop-blur-md border-b border-slate-100 z-10 relative">
+                <div className="flex items-center justify-between mb-3">
                    <div className="flex items-center gap-2">
                       <span className="text-[10px] font-black font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                         #{task.detailId}
                       </span>
                       {task.status === 'DELAY' && (
-                        <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
-                           已延误
+                        <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100 flex items-center gap-1">
+                           <Zap size={10} fill="currentColor" /> 已延误
+                        </span>
+                      )}
+                      {task.status === 'NORMAL' && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                           正常排程
                         </span>
                       )}
                    </div>
@@ -273,26 +285,26 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                    </button>
                 </div>
                 
-                <h2 className="text-xl font-black text-slate-800 font-mono tracking-tight leading-snug mb-4 select-text">
+                <h2 className="text-2xl font-black text-slate-800 font-mono tracking-tight leading-snug mb-5 select-text">
                    {task.billNo}
                 </h2>
                 
                 <div className="flex gap-3">
-                   <div className="flex-1 bg-blue-50/50 rounded-xl p-3 border border-blue-100/60 flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                        <Tag size={16} strokeWidth={2.5}/>
+                   <div className="flex-1 bg-blue-50/60 rounded-xl p-3 border border-blue-100/60 flex items-center gap-3 shadow-sm">
+                      <div className="p-2.5 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+                        <Tag size={18} strokeWidth={2.5}/>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[10px] text-blue-400 font-bold uppercase">产品</div>
+                        <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider mb-0.5">产品编号</div>
                         <div className="text-sm font-bold text-slate-700 font-mono truncate" title={task.productId}>{task.productId}</div>
                       </div>
                    </div>
-                   <div className="flex-1 bg-purple-50/50 rounded-xl p-3 border border-purple-100/60 flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                        <Package size={16} strokeWidth={2.5}/>
+                   <div className="flex-1 bg-purple-50/60 rounded-xl p-3 border border-purple-100/60 flex items-center gap-3 shadow-sm">
+                      <div className="p-2.5 bg-purple-100 text-purple-600 rounded-lg shadow-sm">
+                        <Package size={18} strokeWidth={2.5}/>
                       </div>
                       <div>
-                        <div className="text-[10px] text-purple-400 font-bold uppercase">数量</div>
+                        <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-0.5">计划数量</div>
                         <div className="text-sm font-bold text-slate-700 font-mono">{task.qty} <span className="text-xs font-medium text-slate-400">{task.unit}</span></div>
                       </div>
                    </div>
@@ -312,7 +324,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                       return (
                         <div key={groupIndex} className="relative pl-10 group">
                            {/* 左侧圆点 */}
-                           <div className="absolute left-[35px] top-[22px] -translate-x-1/2 w-[14px] h-[14px] rounded-full bg-white border-[3px] border-blue-500 shadow-sm z-20 group-hover:scale-110 transition-transform"></div>
+                           <div className="absolute left-[35px] top-[22px] -translate-x-1/2 w-[14px] h-[14px] rounded-full bg-white border-[3px] border-blue-500 shadow-sm z-20 group-hover:scale-110 group-hover:border-blue-600 transition-all duration-300"></div>
                            
                            {/* 卡片容器 */}
                            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
@@ -327,34 +339,39 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                               >
                                  <div className="flex items-center gap-3">
                                      {/* 序号 */}
-                                     <div className="text-[10px] font-bold text-slate-400 font-mono">
+                                     <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 font-mono border border-slate-200">
                                        {(groupIndex + 1).toString().padStart(2, '0')}
                                      </div>
-                                     <h3 className="font-bold text-base text-slate-800">{group.name}</h3>
-                                     
-                                     {isMulti && (
-                                       <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                           {group.items.length} 段
-                                           {isExpanded ? <ChevronUp size={10}/> : <ChevronDown size={10}/>}
-                                       </span>
-                                     )}
+                                     <div>
+                                        <h3 className="font-bold text-base text-slate-800">{group.name}</h3>
+                                        <div className="text-[10px] font-mono text-slate-400 font-medium">工序组</div>
+                                     </div>
                                  </div>
-                                 <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
-                                     <Timer size={12} strokeWidth={3} />
-                                     <span className="text-xs font-bold font-mono">{formatDuration(group.totalMins)}</span>
+
+                                 <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 shadow-sm">
+                                        <Timer size={13} strokeWidth={2.5} />
+                                        <span className="text-xs font-bold font-mono">{formatDuration(group.totalMins)}</span>
+                                    </div>
+                                    {isMulti && (
+                                       <div className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                           <ChevronDown size={16} />
+                                       </div>
+                                    )}
                                  </div>
                               </div>
 
-                              {/* 
-                                 优化点：只有在多段任务时，才显示顶部的总时间范围条。
-                                 单段任务直接在下面显示，避免重复。
-                              */}
-                              {isMulti && (
+                              {/* 多段提示条 (折叠状态显示) */}
+                              {isMulti && !isExpanded && (
                                  <div className="px-4 pb-4">
-                                   <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs">
-                                       <div className="font-mono font-bold text-slate-600">{safeFormat(group.start, "MM-dd HH:mm")}</div>
-                                       <div className="flex-1 border-b border-dashed border-slate-300 mx-3"></div>
-                                       <div className="font-mono font-bold text-slate-600">{safeFormat(group.end, "MM-dd HH:mm")}</div>
+                                   <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleGroup(groupIndex)}>
+                                       <div className="flex items-center gap-2">
+                                           <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{group.items.length} 个分段</span>
+                                           <span className="text-slate-400">点击展开详情</span>
+                                       </div>
+                                       <div className="font-mono font-bold text-slate-500">
+                                           {safeFormat(group.start, "MM-dd")} <ArrowRight size={10} className="inline mx-1"/> {safeFormat(group.end, "MM-dd")}
+                                       </div>
                                    </div>
                                  </div>
                               )}
@@ -370,11 +387,11 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                       className={`
                                         relative px-4 py-3
                                         ${i > 0 ? 'border-t border-slate-100 border-dashed' : ''}
-                                        hover:bg-blue-50/30 transition-colors
+                                        hover:bg-blue-50/30 transition-colors group/item
                                       `}
                                     >
                                        {isMulti && (
-                                          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-300/30"></div>
+                                          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>
                                        )}
                                        
                                        <div className="flex items-center justify-between mb-2">
@@ -387,22 +404,33 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                               </span>
                                           </div>
                                           {isMulti && (
-                                             <span className="text-[10px] font-medium text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-100">
-                                                Part {i + 1}
+                                             <span className="text-[9px] font-bold text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+                                                第 {i + 1} 段
                                              </span>
                                           )}
                                        </div>
                                        
-                                       {/* 时间胶囊布局 */}
-                                       <div className="flex items-center gap-0">
-                                           <div className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-l-md border border-emerald-100 border-r-0 text-xs font-mono font-bold">
-                                              {safeFormat(seg.start, "MM-dd HH:mm")}
+                                       {/* 时间胶囊布局 - 改进版 */}
+                                       <div className="flex items-center w-full shadow-sm rounded-lg overflow-hidden border border-slate-200/60">
+                                           <div className="flex-1 bg-emerald-50/80 text-emerald-800 px-3 py-1.5 border-r border-dashed border-emerald-200 flex flex-col items-center justify-center">
+                                              <span className="text-[9px] font-bold uppercase text-emerald-600/70 mb-0.5">开始时间</span>
+                                              <span className="text-xs font-mono font-bold">{safeFormat(seg.start, "MM-dd HH:mm")}</span>
+                                              {/* <span className="text-[9px] text-emerald-500/70">{formatDuration(0)}</span> */}
                                            </div>
-                                           <div className="bg-slate-50 px-1.5 py-1 border-y border-slate-200 flex items-center justify-center">
-                                              <ArrowRight size={12} className="text-slate-400"/>
+                                           
+                                           <div className="w-8 bg-white flex items-center justify-center">
+                                              <ArrowRight size={14} className="text-slate-300"/>
                                            </div>
-                                           <div className="bg-rose-50 text-rose-700 px-2 py-1 rounded-r-md border border-rose-100 border-l-0 text-xs font-mono font-bold">
-                                              {safeFormat(seg.end, "HH:mm")}
+
+                                           <div className="flex-1 bg-rose-50/80 text-rose-800 px-3 py-1.5 border-l border-dashed border-rose-200 flex flex-col items-center justify-center">
+                                              <span className="text-[9px] font-bold uppercase text-rose-600/70 mb-0.5">结束时间</span>
+                                              <span className="text-xs font-mono font-bold">{safeFormat(seg.end, "HH:mm")}</span> 
+                                              {/* 如果是跨天显示日期，这里简化只显示时间，除非跨天 */}
+                                              {(!isSameDay(seg.start, seg.end)) && (
+                                                  <span className="text-[9px] text-rose-600/70 font-bold">
+                                                      (+{differenceInCalendarDays(seg.end, seg.start)}天)
+                                                  </span>
+                                              )}
                                            </div>
                                        </div>
                                     </div>
@@ -415,9 +443,12 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                    })}
                    
                    {/* 结束节点 */}
-                   <div className="relative pl-10 pt-1">
-                      <div className="absolute left-[35px] top-2.5 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-slate-300 z-20 ring-4 ring-white"></div>
-                      <div className="text-xs font-bold text-slate-400 tracking-wider uppercase">End of process</div>
+                   <div className="relative pl-10 pt-1 pb-6">
+                      <div className="absolute left-[35px] top-2.5 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-800 z-20 ring-4 ring-white shadow-md"></div>
+                      <div className="ml-2 flex flex-col">
+                          <span className="text-xs font-black text-slate-700 tracking-wider uppercase">全流程结束</span>
+                          <span className="text-[10px] text-slate-400">总周期: {formatDuration(task.totalMins)}</span>
+                      </div>
                    </div>
                 </div>
              </div>
@@ -430,7 +461,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 };
 
 // ==========================================
-// 5. 任务卡片组件 (用于 Sortable 和 DragOverlay)
+// 5. 任务卡片组件 (Ticket Style)
 // ==========================================
 const TaskCard: React.FC<{
   task: UiTask;
@@ -441,115 +472,145 @@ const TaskCard: React.FC<{
   dragHandleProps?: any; // 用于传递拖拽句柄的 props
 }> = ({ task, index, isSelected, isDragging, onClick, dragHandleProps }) => {
   const isDelay = task.status === 'DELAY';
+  const isWarning = task.status === 'WARNING';
   
+  // 状态颜色映射
+  const statusColor = isDelay ? 'bg-rose-500' : (isWarning ? 'bg-amber-400' : 'bg-emerald-500');
+  const statusBg = isDelay ? 'bg-rose-50' : (isWarning ? 'bg-amber-50' : 'bg-emerald-50');
+  const statusText = isDelay ? 'text-rose-600' : (isWarning ? 'text-amber-600' : 'text-emerald-600');
+  const statusBorder = isDelay ? 'border-rose-100' : (isWarning ? 'border-amber-100' : 'border-emerald-100');
+
   return (
     <div 
        style={{ height: VIEW_CONFIG.rowHeight }}
-       // 重点优化：将拖拽监听器绑定到整个卡片容器
        {...dragHandleProps}
        className={`
-         w-full relative rounded-2xl overflow-hidden flex flex-col transition-all duration-200 border group select-none
+         w-full relative rounded-2xl overflow-hidden flex flex-col transition-all duration-300 group select-none
          ${isDragging 
-             ? 'bg-white shadow-2xl scale-[1.02] border-blue-400 z-50 ring-2 ring-blue-200 rotate-1 cursor-grabbing' 
+             ? 'bg-white shadow-2xl scale-[1.02] border-blue-400 z-50 ring-4 ring-blue-100/50 rotate-1 cursor-grabbing' 
              : (isSelected 
-                 ? 'bg-blue-50 border-blue-400 shadow-xl z-20 cursor-grab active:cursor-grabbing' 
-                 : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 cursor-grab active:cursor-grabbing'
+                 ? 'bg-white border-blue-400 shadow-xl ring-2 ring-blue-50 z-20 cursor-grab active:cursor-grabbing' 
+                 : 'bg-white border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-300 hover:-translate-y-1 cursor-grab active:cursor-grabbing'
                )
          }
+         border
        `}
        onClick={onClick}
     >
-        {/* 侧边状态条 */}
-        <div className={`absolute left-0 top-0 bottom-0 w-[5px] z-20 ${
-            isDelay ? 'bg-rose-500' : (task.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400')
-        }`} />
+        {/* 左侧装饰条 */}
+        <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${statusColor} z-20`} />
 
-        {/* 背景装饰序号 - 修改：z-index 提升到 30 (最上层)，防止被内容遮挡，同时调整透明度保证不干扰阅读 */}
-        <div className="absolute top-12 right-6 w-24 h-24 border-4 border-dashed border-slate-300/50 rounded-full flex items-center justify-center opacity-20 pointer-events-none rotate-12 z-30 group-hover:opacity-30 group-hover:border-blue-300 group-hover:text-blue-400 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
-            <span className="text-5xl font-black text-slate-400 select-none">
-                {(index + 1).toString().padStart(2, '0')}
-            </span>
+        {/* 
+            Background Index Watermark
+            - Top Right position
+            - Large, Faint (opacity-100 but very light color text-slate-100)
+            - No '#'
+            - z-0 to sit behind text
+        */}
+        <div className="absolute right-3 top-0 text-[3.5rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0"
+             style={{ fontFamily: 'Inter, sans-serif' }}>
+            {String(index + 1).padStart(2, '0')}
         </div>
 
-        {/* 头部：单号与状态 - z-20 */}
-        <div className="relative z-20 px-4 pt-4 pb-2 flex justify-between items-start pl-5">
-           <div className="flex items-start gap-3">
-             {/* 
-                 优化：保留图标作为视觉提示，但不需要专门的 div 监听事件了 
-                 因为父级容器已经接管了拖拽事件
-             */}
-             <div className="mt-1 -ml-1.5 p-1 text-slate-300 group-hover:text-blue-500 transition-colors">
-                <GripVertical size={16} />
-             </div>
-             
-             <div>
-               <div className="flex items-center gap-2 mb-1.5">
-                  <Hash size={12} className="text-slate-400"/>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">生产单号</span>
-               </div>
-               <div className="text-xl font-black font-mono text-slate-800 tracking-tight leading-none truncate w-[200px]" title={task.billNo}>
-                  {task.billNo}
-               </div>
-             </div>
-           </div>
-           
-           <div className={`px-2 py-1 rounded-lg text-[10px] font-black border leading-none shadow-sm ${isDelay ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
-               {isDelay ? '延误' : '正常'}
-           </div>
-        </div>
-
-        {/* 内容详情 - z-20，背景透明度调整以配合底层序号展示 */}
-        <div className="relative z-20 px-5 flex-1 flex flex-col gap-3 min-h-0">
-           <div className="flex items-center gap-2 overflow-hidden">
-                <div className="p-1 bg-slate-100 text-blue-600 rounded">
-                  <Tag size={12}/>
+        {/* 
+            Ticket 容器 (Z-Index: 10)
+        */}
+        <div className="relative z-10 flex flex-col h-full bg-transparent">
+            
+            {/* Top Bar: 极简状态栏 */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-1 relative z-20">
+                <div className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
+                    {isDelay ? '延误' : (isWarning ? '预警' : '正常')}
                 </div>
-                <span className="text-sm font-bold font-mono text-blue-700 truncate">{task.productId || "N/A"}</span>
-           </div>
+                <div className="text-slate-300 group-hover:text-blue-500 transition-colors">
+                   <GripVertical size={14} />
+                </div>
+            </div>
 
-           <div className="grid grid-cols-2 gap-3 mt-1">
-              {/* 背景透明度调整为 /40，增强通透感 */}
-              <div className="bg-slate-50/40 rounded-xl p-2 border border-slate-100 backdrop-blur-sm">
-                 <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mb-0.5">
-                    <Package size={10}/> 数量
-                 </div>
-                 <div className="font-mono text-sm font-black text-slate-700">
-                    {task.qty} <span className="text-[10px] font-medium text-slate-400">{task.unit}</span>
-                 </div>
-              </div>
+            {/* Main Info Row: 左右对齐的单号与编号 */}
+            <div className="px-4 flex items-end justify-between gap-2 mt-1 relative z-20">
+                {/* Left: Bill No */}
+                <div className="flex-1 min-w-0 pr-4">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <Hash size={11} className="text-slate-400"/>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">生产单号</span>
+                    </div>
+                    <div className="text-lg font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>
+                        {task.billNo}
+                    </div>
+                </div>
 
-              <div className={`rounded-xl p-2 border backdrop-blur-sm ${isDelay ? 'bg-rose-50/40 border-rose-100' : 'bg-slate-50/40 border-slate-100'}`}>
-                 <div className={`flex items-center gap-1 text-[10px] font-bold uppercase mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                    <Clock size={10}/> 交货日期
+                {/* Right: Product Code */}
+                <div className="flex-1 min-w-0 text-right">
+                    <div className="flex items-center justify-end gap-1.5 mb-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">产品编号</span>
+                        <Tag size={11} className="text-slate-400"/>
+                    </div>
+                    <div className="text-sm font-bold font-mono text-blue-600 leading-none truncate tracking-tight" title={task.productId}>
+                        {task.productId || "N/A"}
+                    </div>
+                </div>
+            </div>
+
+            {/* Divider with Holes */}
+            <div className="relative h-px bg-slate-100 my-3 mx-2 z-10">
+                <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-slate-200 rounded-full z-20 box-content border-l-transparent border-t-transparent border-b-transparent -rotate-45" style={{boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.05)'}}></div>
+                <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-slate-200 rounded-full z-20 box-content border-r-transparent border-t-transparent border-b-transparent 45deg" style={{boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.05)'}}></div>
+            </div>
+
+            {/* Grid Info */}
+            <div className="px-4 grid grid-cols-2 gap-3 mb-auto relative z-20">
+                {/* Quantity Box */}
+                <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[64px]">
+                    <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                        <Package size={11} /> 计划数量
+                    </div>
+                    <div className="text-sm font-black font-mono text-slate-700 leading-none">
+                        {task.qty} <span className="text-[10px] font-bold text-slate-400">{task.unit}</span>
+                    </div>
+                </div>
+
+                {/* Due Date Box */}
+                <div className={`rounded-xl p-2.5 border flex flex-col justify-center min-h-[64px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
+                    <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider mb-1 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                        <Clock size={11} /> 交货日期
+                    </div>
+                    <div className={`text-sm font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                        {safeFormat(task.dueTime, "MM-dd")}
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer: Process Route (Refined Style) */}
+            <div className="h-[42px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
+                 <div className="shrink-0 text-slate-300 mr-1">
+                    <FileDigit size={14} />
                  </div>
-                 <div className={`font-mono text-sm font-black ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
-                    {safeFormat(task.dueTime, "yyyy-MM-dd")}
-                 </div>
-              </div>
-           </div>
-        </div>
-        
-        {/* 底部工艺流程条 - z-20，背景透明度调整 */}
-        <div className="relative z-20 mt-auto h-[48px] bg-slate-50/40 border-t border-slate-100 overflow-hidden flex items-center">
-           <div className="w-full overflow-x-auto no-scrollbar flex items-center px-4 gap-2">
-              {task.processRoute.map((step, idx) => (
-                  <React.Fragment key={idx}>
-                      <div className={`
-                          shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-sm
-                          ${idx === 0 
-                              ? 'bg-blue-600 text-white border-blue-600' 
-                              : 'bg-white text-slate-600 border-slate-200'}
-                      `}>
-                          {step}
-                      </div>
-                      {idx < task.processRoute.length - 1 && (
-                          <ArrowRight size={10} className="text-slate-300 shrink-0" />
-                      )}
-                  </React.Fragment>
-              ))}
-           </div>
-           {/* 渐变遮罩也相应调淡 */}
-           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50/80 to-transparent pointer-events-none"></div>
+                 <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar mask-linear-fade py-1">
+                    {task.processRoute.map((step, idx) => (
+                        <div key={idx} className="flex items-center shrink-0">
+                            {idx === 0 ? (
+                                // Active Step: High contrast refined blue capsule
+                                <div className="flex items-center justify-center px-3 py-1 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
+                                    <span className="text-[10px] font-bold leading-none">{step}</span>
+                                </div>
+                            ) : (
+                                // Inactive Steps: Subtle text
+                                <span className="text-[10px] font-semibold text-slate-500 px-1">
+                                    {step}
+                                </span>
+                            )}
+                            
+                            {/* Connector */}
+                            {idx < task.processRoute.length - 1 && (
+                                <ChevronRight size={12} className="text-slate-300/80 mx-0.5" />
+                            )}
+                        </div>
+                    ))}
+                </div>
+                {/* Fade effect on right */}
+                <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
+            </div>
         </div>
     </div>
   );
