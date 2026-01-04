@@ -46,7 +46,9 @@ import {
   XCircle,
   Eye,
   MoreHorizontal,
-  ArrowUpRight
+  ArrowUpRight,
+  Armchair,
+  Play
 } from "lucide-react";
 import { 
   DndContext, 
@@ -536,7 +538,7 @@ const LongPressOverlay: React.FC<{ active: ActiveContextData | null; onClose: ()
     const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
     const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const menuWidth = 240; 
-    const estimatedMenuHeight = 220;
+    const estimatedMenuHeight = 160; // Reduced height
     const spaceBelow = screenH - rect.bottom;
     const showAbove = spaceBelow < estimatedMenuHeight + 20; 
     const idealLeft = rect.left + rect.width / 2 - menuWidth / 2;
@@ -568,10 +570,6 @@ const LongPressOverlay: React.FC<{ active: ActiveContextData | null; onClose: ()
             </div>
             <div className="absolute z-[10002] flex flex-col w-[240px] animate-menu-spring" style={menuStyle}>
                 <div className="bg-white/85 backdrop-blur-3xl backdrop-saturate-150 rounded-[24px] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)] ring-1 ring-white/40 border border-white/20 p-2.5 flex flex-col gap-1.5">
-                    <div className="px-3.5 py-2 flex items-center justify-between opacity-50 border-b border-black/5 mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800">Actions</span>
-                        <MoreHorizontal size={14} />
-                    </div>
                     <button onClick={() => { onAction('details', task); onClose(); }} className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden">
                         <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
                             <Eye size={18} strokeWidth={2.5}/>
@@ -582,17 +580,10 @@ const LongPressOverlay: React.FC<{ active: ActiveContextData | null; onClose: ()
                     </button>
                     <div className="h-px bg-slate-400/10 mx-4"></div>
                     <button onClick={() => onClose()} className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden">
-                        <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
-                            <PauseCircle size={18} strokeWidth={2.5}/>
+                        <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
+                            <Armchair size={18} strokeWidth={2.5}/>
                         </div>
-                        <div className="flex flex-col"><span className="text-[15px] font-bold text-slate-800 leading-tight">暂停排程</span></div>
-                    </button>
-                    <div className="h-px bg-slate-400/10 mx-4"></div>
-                    <button onClick={() => onClose()} className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden">
-                        <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
-                            <Lock size={18} strokeWidth={2.5}/>
-                        </div>
-                        <div className="flex flex-col"><span className="text-[15px] font-bold text-slate-800 leading-tight">锁定工序</span></div>
+                        <div className="flex flex-col"><span className="text-[15px] font-bold text-slate-800 leading-tight">工序占位</span></div>
                     </button>
                 </div>
             </div>
@@ -608,9 +599,11 @@ const TaskCard: React.FC<{
   isSelected?: boolean;
   isFocused?: boolean; 
   isDragging?: boolean;
+  isPaused?: boolean;
+  onTogglePause?: (e: React.MouseEvent) => void;
   onClick?: () => void;
   dragHandleProps?: any; 
-}> = React.memo(({ task, index, isSelected, isFocused, isDragging, onClick, dragHandleProps }) => {
+}> = React.memo(({ task, index, isSelected, isFocused, isDragging, isPaused, onTogglePause, onClick, dragHandleProps }) => {
   const isDelay = task.status === 'DELAY';
   const isWarning = task.status === 'WARNING';
   const statusColor = isDelay ? 'bg-rose-500' : (isWarning ? 'bg-amber-400' : 'bg-emerald-500');
@@ -674,9 +667,23 @@ const TaskCard: React.FC<{
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5"><Package size={11} /> 计划数量</div>
                     <div className="text-sm font-black font-mono text-slate-700 leading-none">{task.qty} <span className="text-[10px] font-bold text-slate-400">{task.unit}</span></div>
                 </div>
-                <div className={`rounded-lg p-1.5 border flex flex-col justify-center min-h-[44px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
+                <div className={`relative rounded-lg p-1.5 border flex flex-col justify-center min-h-[44px] backdrop-blur-sm transition-colors group/date ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
                     <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}><Clock size={11} /> 交货日期</div>
                     <div className={`text-sm font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>{safeFormat(task.dueTime, "MM-dd")}</div>
+                    
+                    {/* 暂停按钮 - 悬浮显示 */}
+                    {onTogglePause && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onTogglePause(e); }}
+                            className={`
+                                absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full shadow-sm transition-all duration-200 hover:scale-110
+                                ${isPaused ? 'bg-amber-100 text-amber-600 opacity-100' : 'bg-white text-slate-400 opacity-0 group-hover/date:opacity-100 hover:bg-slate-100 hover:text-blue-600'}
+                            `}
+                            title={isPaused ? "继续排程" : "暂停排程"}
+                        >
+                            {isPaused ? <Play size={14} fill="currentColor"/> : <PauseCircle size={14} />}
+                        </button>
+                    )}
                 </div>
             </div>
             <div className="h-[32px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
@@ -701,12 +708,29 @@ const TaskCard: React.FC<{
 });
 
 // 封装 Sortable 逻辑 - 增加 Memo
-const SortableTaskItem: React.FC<{ task: UiTask; index: number; isSelected: boolean; isFocused: boolean; onClick: () => void }> = React.memo(({ task, index, isSelected, isFocused, onClick }) => {
+const SortableTaskItem: React.FC<{ 
+    task: UiTask; 
+    index: number; 
+    isSelected: boolean; 
+    isFocused: boolean; 
+    isPaused: boolean;
+    onTogglePause: (e: React.MouseEvent) => void;
+    onClick: () => void;
+}> = React.memo(({ task, index, isSelected, isFocused, isPaused, onTogglePause, onClick }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   return (
     <div ref={setNodeRef} style={style} className="mb-4 touch-none" id={`task-row-${task.id}`}>
-       <TaskCard task={task} index={index} isSelected={isSelected} isFocused={isFocused} onClick={onClick} dragHandleProps={{...attributes, ...listeners}} />
+       <TaskCard 
+            task={task} 
+            index={index} 
+            isSelected={isSelected} 
+            isFocused={isFocused} 
+            isPaused={isPaused}
+            onTogglePause={onTogglePause}
+            onClick={onClick} 
+            dragHandleProps={{...attributes, ...listeners}} 
+        />
     </div>
   );
 });
@@ -730,6 +754,8 @@ export default function ApsSchedulingPage() {
   const [onlyDelayed, setOnlyDelayed] = useState(false); 
   const [selectedTask, setSelectedTask] = useState<UiTask | null>(null); 
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null); 
+  
+  const [pausedTaskIds, setPausedTaskIds] = useState<Set<string>>(new Set());
 
   const [activeContext, setActiveContext] = useState<ActiveContextData | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -939,26 +965,48 @@ export default function ApsSchedulingPage() {
       setKeyword("");
       const targetTask = tasks.find(t => t.id === taskId);
       if (targetTask) {
+          // 1. 强制切换视图到任务开始的当天
           const targetDate = startOfDayDate(targetTask.start);
           setViewStart(targetDate);
           
-          setTimeout(() => {
-              const rowEl = document.getElementById(`task-row-${taskId}`);
-              if (rowEl) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // 2. 触发高亮动画
+          setFocusedTaskId(taskId);
+          setTimeout(() => setFocusedTaskId(null), 6000);
 
-              if (rightPanelRef.current) {
-                 const h = targetTask.start.getHours() + targetTask.start.getMinutes() / 60;
-                 const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
-                 let p = (h - VIEW_CONFIG.workStartHour) / totalH;
-                 p = Math.max(0, Math.min(1, p));
-                 const px = p * VIEW_CONFIG.dayColWidth;
-                 rightPanelRef.current.scrollTo({ left: Math.max(0, px - 100), behavior: 'smooth' });
-              }
+          // 3. 使用 requestAnimationFrame 确保 React 渲染后再执行滚动
+          requestAnimationFrame(() => {
+             setTimeout(() => {
+                  // 左侧列表滚动
+                  const rowEl = document.getElementById(`task-row-${taskId}`);
+                  if (rowEl) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-              setFocusedTaskId(taskId);
-              setTimeout(() => setFocusedTaskId(null), 6000);
-          }, 200); 
+                  // 右侧甘特图滚动
+                  if (rightPanelRef.current) {
+                      // 既然 viewStart 已经是任务当天，那么 index 肯定是 0
+                      // 直接计算当天的时间偏移量
+                      const h = targetTask.start.getHours() + targetTask.start.getMinutes() / 60;
+                      const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
+                      let p = (h - VIEW_CONFIG.workStartHour) / totalH;
+                      p = Math.max(0, Math.min(1, p));
+                      
+                      // 计算像素位置，减去一点 padding 视觉更舒服
+                      const px = p * VIEW_CONFIG.dayColWidth;
+                      rightPanelRef.current.scrollTo({ left: Math.max(0, px - 100), behavior: 'smooth' });
+                  }
+             }, 100); // 增加延时以等待 DOM 布局重排
+          });
       }
+  };
+
+  const toggleTaskPause = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation(); // 防止触发卡片点击
+    const newSet = new Set(pausedTaskIds);
+    if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+    } else {
+        newSet.add(taskId);
+    }
+    setPausedTaskIds(newSet);
   };
 
   const getSegmentStyle = useCallback((segStart: Date, segEnd: Date) => {
@@ -1032,7 +1080,12 @@ export default function ApsSchedulingPage() {
   };
 
   const handleMenuAction = (type: string, task: UiTask) => {
-      if (type === 'details') setSelectedTask(task);
+      if (type === 'details') {
+        // 核心修改：点击查看详情时，不仅打开抽屉，还自动定位到右侧甘特图
+        handleLocateTask(task.id);
+        setSelectedTask(task);
+      }
+      // TODO: Handle 'placeholder' action later
   };
 
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
@@ -1096,7 +1149,13 @@ export default function ApsSchedulingPage() {
                      <span className="text-sm font-black font-mono text-slate-700 leading-none">{stats.total}</span>
                  </div>
                  <button onClick={() => stats.delay > 0 && setIsErrorDrawerOpen(true)} disabled={stats.delay === 0} className={`relative flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px] ${stats.delay > 0 ? 'bg-rose-50/80 border-rose-200 cursor-pointer hover:bg-rose-100 hover:scale-105 active:scale-95 shadow-sm hover:shadow-rose-200' : 'bg-white/40 border-white/50 opacity-60 cursor-default'}`}>
-                     <span className={`text-[9px] font-bold uppercase flex items-center gap-1 scale-90 ${stats.delay > 0 ? 'text-rose-500' : 'text-slate-400'}`}>严重延误 {stats.delay > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>}</span>
+                     {/* 修复呼吸点位置：作为绝对定位的子元素直接放在 button 下，不放在 span 里 */}
+                     {stats.delay > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping pointer-events-none"></span>}
+                     {stats.delay > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full pointer-events-none"></span>}
+                     
+                     <span className={`text-[9px] font-bold uppercase flex items-center gap-1 scale-90 ${stats.delay > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                         严重延误
+                     </span>
                      <span className={`text-sm font-black font-mono leading-none ${stats.delay > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{stats.delay}</span>
                  </button>
                  <button onClick={() => stats.warning > 0 && setIsErrorDrawerOpen(true)} disabled={stats.warning === 0} className={`flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px] ${stats.warning > 0 ? 'bg-amber-50/80 border-amber-200 cursor-pointer hover:bg-amber-100 hover:scale-105 active:scale-95 shadow-sm' : 'bg-white/40 border-white/50 opacity-60 cursor-default'}`}>
@@ -1143,7 +1202,16 @@ export default function ApsSchedulingPage() {
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                     <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                       {filteredTasks.map((task, index) => (
-                        <SortableTaskItem key={task.id} task={task} index={index} isSelected={selectedTask?.id === task.id} isFocused={focusedTaskId === task.id} onClick={() => setSelectedTask(task)} />
+                        <SortableTaskItem 
+                            key={task.id} 
+                            task={task} 
+                            index={index} 
+                            isSelected={selectedTask?.id === task.id} 
+                            isFocused={focusedTaskId === task.id} 
+                            isPaused={pausedTaskIds.has(task.id)}
+                            onTogglePause={(e) => toggleTaskPause(e, task.id)}
+                            onClick={() => setSelectedTask(task)} 
+                        />
                       ))}
                     </SortableContext>
                     {createPortal(
@@ -1202,13 +1270,14 @@ export default function ApsSchedulingPage() {
                      const validStart = taskStartPx > -5000;
                      const validEnd = taskEndPx > -5000;
                      const connectionWidth = (validStart && validEnd) ? (taskEndPx - taskStartPx) : 0;
+                     const isTaskPaused = pausedTaskIds.has(task.id);
 
                      return (
                         <div key={task.id} className="relative w-full mb-4 z-10" style={{ height: VIEW_CONFIG.rowHeight }}>
                            <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
                                {connectionWidth > 0 && (
                                   <div className="absolute h-full z-0 flex items-center" style={{ left: taskStartPx, width: connectionWidth }}>
-                                     <div className="absolute inset-x-0 h-[3px] bg-slate-200/60 rounded-full"></div>
+                                     <div className={`absolute inset-x-0 h-[3px] rounded-full transition-colors duration-300 ${isTaskPaused ? 'bg-slate-200' : 'bg-slate-200/60'}`}></div>
                                   </div>
                                )}
                            </div>
@@ -1230,14 +1299,18 @@ export default function ApsSchedulingPage() {
                                        onPointerLeave={handlePointerUpSegment}
                                     >
                                        <div 
-                                          className={`w-full h-full rounded-xl cursor-pointer pointer-events-auto ${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border} border flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm`}
+                                          className={`w-full h-full rounded-xl cursor-pointer pointer-events-auto border flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm transition-all duration-300 ${
+                                              isTaskPaused 
+                                                ? 'bg-slate-100 border-slate-200 shadow-none grayscale opacity-80' 
+                                                : `${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border}`
+                                          }`}
                                           onClick={(e) => handleSegmentClick(e, task)}
                                        >
                                           <div className="absolute inset-x-0 top-0 h-[40%] bg-white/20 rounded-t-xl pointer-events-none"></div>
                                           {pixelWidth > 30 && (
                                              <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
-                                                <div className={`text-[10px] font-black drop-shadow-sm truncate w-full px-1 ${seg.color.text}`}>{seg.name}</div>
-                                                {pixelWidth > 60 && (<div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>{safeFormat(seg.start)}</div>)}
+                                                <div className={`text-[10px] font-black drop-shadow-sm truncate w-full px-1 ${isTaskPaused ? 'text-slate-400' : seg.color.text}`}>{seg.name}</div>
+                                                {pixelWidth > 60 && (<div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${isTaskPaused ? 'text-slate-400' : seg.color.text}`}>{safeFormat(seg.start)}</div>)}
                                              </div>
                                           )}
                                        </div>
