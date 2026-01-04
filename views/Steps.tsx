@@ -938,17 +938,27 @@ export default function ApsSchedulingPage() {
       setOnlyDelayed(false);
       setKeyword("");
       const targetTask = tasks.find(t => t.id === taskId);
-      if (targetTask) setViewStart(startOfDayDate(targetTask.start));
-      setTimeout(() => {
-          const rowEl = document.getElementById(`task-row-${taskId}`);
-          if (rowEl) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          if (targetTask && rightPanelRef.current) {
-             const px = getPosPx(targetTask.start);
-             rightPanelRef.current.scrollTo({ left: Math.max(0, px - 100), behavior: 'smooth' });
-          }
-          setFocusedTaskId(taskId);
-          setTimeout(() => setFocusedTaskId(null), 3000);
-      }, 150); 
+      if (targetTask) {
+          const targetDate = startOfDayDate(targetTask.start);
+          setViewStart(targetDate);
+          
+          setTimeout(() => {
+              const rowEl = document.getElementById(`task-row-${taskId}`);
+              if (rowEl) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+              if (rightPanelRef.current) {
+                 const h = targetTask.start.getHours() + targetTask.start.getMinutes() / 60;
+                 const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
+                 let p = (h - VIEW_CONFIG.workStartHour) / totalH;
+                 p = Math.max(0, Math.min(1, p));
+                 const px = p * VIEW_CONFIG.dayColWidth;
+                 rightPanelRef.current.scrollTo({ left: Math.max(0, px - 100), behavior: 'smooth' });
+              }
+
+              setFocusedTaskId(taskId);
+              setTimeout(() => setFocusedTaskId(null), 6000);
+          }, 200); 
+      }
   };
 
   const getSegmentStyle = useCallback((segStart: Date, segEnd: Date) => {
@@ -1255,8 +1265,11 @@ export default function ApsSchedulingPage() {
         .custom-scrollbar::-webkit-scrollbar-corner { background: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes pulse-once { 0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); } 50% { box-shadow: 0 0 0 6px rgba(59,130,246,0.3); border-color: #3b82f6; } }
-        .animate-pulse-once { animation: pulse-once 1.5s cubic-bezier(0.4, 0, 0.6, 1) 2; }
+        @keyframes pulse-once { 
+          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); border-color: transparent; } 
+          50% { box-shadow: 0 0 0 6px rgba(59,130,246,0.3); border-color: #3b82f6; background-color: rgba(239, 246, 255, 0.5); } 
+        }
+        .animate-pulse-once { animation: pulse-once 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes menu-spring { 0% { opacity: 0; transform: scale(0.8) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         .animate-menu-spring { animation: menu-spring 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
       `}</style>
