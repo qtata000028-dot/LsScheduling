@@ -74,14 +74,21 @@ import { fetchApsMonths, runApsSchedule, ApsMonthItem, ApsScheduleWarning } from
 import { DashboardContextType } from "../layouts/DashboardLayout"; 
 
 // ==========================================
-// 1. 核心配置 & 样式常量 (1080P 舒适版)
+// 1. 核心配置 & 样式常量 (智能分辨率适配)
 // ==========================================
 
+// 简单判断是否为 1080P 或更小屏幕 (通常宽度 <= 1920)
+const isCompactScreen = typeof window !== 'undefined' && window.innerWidth <= 1920;
+
 const VIEW_CONFIG = {
-  dayColWidth: 540,      // 优化：540px，兼顾可视范围与刻度清晰度
-  leftColWidth: 360,     // 优化：360px，给单号和名称足够空间
-  headerHeight: 72,      // 优化：72px，适中的头部高度
-  rowHeight: 156,        // 优化：156px，防止底部被遮挡，同时保持紧凑
+  // 1080P 下用 540，4K 下用 720
+  dayColWidth: isCompactScreen ? 540 : 720,      
+  // 1080P 下用 360，4K 下用 420
+  leftColWidth: isCompactScreen ? 360 : 420,     
+  // 1080P 下稍微矮一点的 Header
+  headerHeight: isCompactScreen ? 68 : 80,      
+  // 关键：1080P 下增加到 164px 保证底部不被遮挡；4K 下 180px 保持大气
+  rowHeight: isCompactScreen ? 164 : 180,        
   workStartHour: 0,      
   workEndHour: 24,       
 };
@@ -800,7 +807,7 @@ const TaskCard: React.FC<{
         <div className="relative z-10 flex flex-col h-full bg-transparent">
             
             {/* Top Bar: 极简状态栏 */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-1 relative z-20">
+            <div className="flex items-center justify-between px-4 pt-2.5 pb-1 relative z-20">
                 <div className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
                     {isDelay ? '延误' : (isWarning ? '预警' : '正常')}
                 </div>
@@ -835,15 +842,15 @@ const TaskCard: React.FC<{
             </div>
 
             {/* Divider with Holes */}
-            <div className="relative h-px bg-slate-100 my-2.5 mx-2 z-10">
+            <div className="relative h-px bg-slate-100 my-2 mx-2 z-10">
                 <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-l-transparent border-t-transparent border-b-transparent -rotate-45" style={{boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.05)'}}></div>
                 <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-r-transparent border-t-transparent border-b-transparent 45deg" style={{boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.05)'}}></div>
             </div>
 
-            {/* Grid Info */}
+            {/* Grid Info (Reduced vertical padding/height for 1080p fit) */}
             <div className="px-4 grid grid-cols-2 gap-3 mb-auto relative z-20">
                 {/* Quantity Box */}
-                <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[48px]">
+                <div className="bg-slate-50/80 rounded-lg p-1.5 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[44px]">
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
                         <Package size={11} /> 计划数量
                     </div>
@@ -853,7 +860,7 @@ const TaskCard: React.FC<{
                 </div>
 
                 {/* Due Date Box */}
-                <div className={`rounded-lg p-2 border flex flex-col justify-center min-h-[48px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
+                <div className={`rounded-lg p-1.5 border flex flex-col justify-center min-h-[44px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
                     <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
                         <Clock size={11} /> 交货日期
                     </div>
@@ -863,8 +870,8 @@ const TaskCard: React.FC<{
                 </div>
             </div>
 
-            {/* Footer: Process Route (Refined Style) */}
-            <div className="h-[38px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
+            {/* Footer: Process Route (More Compact for 1080p) */}
+            <div className="h-[32px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
                  <div className="shrink-0 text-slate-300 mr-0.5">
                     <FileDigit size={14} />
                  </div>
@@ -873,7 +880,7 @@ const TaskCard: React.FC<{
                         <div key={idx} className="flex items-center shrink-0">
                             {idx === 0 ? (
                                 // Active Step: High contrast refined blue capsule
-                                <div className="flex items-center justify-center px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
+                                <div className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
                                     <span className="text-[10px] font-bold leading-none">{step}</span>
                                 </div>
                             ) : (
