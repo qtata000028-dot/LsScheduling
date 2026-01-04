@@ -74,14 +74,14 @@ import { fetchApsMonths, runApsSchedule, ApsMonthItem, ApsScheduleWarning } from
 import { DashboardContextType } from "../layouts/DashboardLayout"; 
 
 // ==========================================
-// 1. 核心配置 & 样式常量 (1080p 优化版)
+// 1. 核心配置 & 样式常量 (1080P 舒适版)
 // ==========================================
 
 const VIEW_CONFIG = {
-  dayColWidth: 480,      // 优化：从 720 缩小到 480，1080p下可视范围更广
-  leftColWidth: 320,     // 优化：从 400 缩小到 320，更精致的侧边栏
-  headerHeight: 64,      // 优化：头部变矮，增加内容区高度
-  rowHeight: 132,        // 优化：从 180 缩小到 132，提升纵向信息密度
+  dayColWidth: 540,      // 优化：540px，兼顾可视范围与刻度清晰度
+  leftColWidth: 360,     // 优化：360px，给单号和名称足够空间
+  headerHeight: 72,      // 优化：72px，适中的头部高度
+  rowHeight: 156,        // 优化：156px，防止底部被遮挡，同时保持紧凑
   workStartHour: 0,      
   workEndHour: 24,       
 };
@@ -271,7 +271,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
       />
       <div 
         className={`
-          fixed top-2 right-2 bottom-2 w-[480px] max-w-[calc(100vw-16px)]
+          fixed top-2 right-2 bottom-2 w-[520px] max-w-[calc(100vw-16px)]
           bg-white shadow-2xl z-[9999] rounded-2xl flex flex-col overflow-hidden ring-1 ring-slate-900/5
           transform transition-transform duration-500 cubic-bezier(0.2, 0.8, 0.2, 1)
           ${isVisible ? 'translate-x-0' : 'translate-x-[110%]'}
@@ -280,94 +280,94 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
         {task && (
           <div className="flex flex-col h-full bg-slate-50/50 relative">
              {/* Header */}
-             <div className="shrink-0 p-5 bg-white/90 backdrop-blur-md border-b border-slate-100 z-10 relative">
-                <div className="flex items-center justify-between mb-3">
+             <div className="shrink-0 p-6 bg-white/90 backdrop-blur-md border-b border-slate-100 z-10 relative">
+                <div className="flex items-center justify-between mb-4">
                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      <span className="text-xs font-black font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">
                         #{task.detailId}
                       </span>
                       {task.status === 'DELAY' && (
-                        <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full border border-rose-100 flex items-center gap-1">
-                           <Zap size={12} fill="currentColor" /> 已延误
+                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full border border-rose-100 flex items-center gap-1">
+                           <Zap size={14} fill="currentColor" /> 已延误
                         </span>
                       )}
                    </div>
-                   <button onClick={onClose} className="p-1.5 -mr-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-all">
-                      <ChevronRight size={20} />
+                   <button onClick={onClose} className="p-2 -mr-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-all">
+                      <ChevronRight size={24} />
                    </button>
                 </div>
                 
-                <h2 className="text-2xl font-black text-slate-800 font-mono tracking-tight leading-snug mb-4 select-text">
+                <h2 className="text-3xl font-black text-slate-800 font-mono tracking-tight leading-snug mb-6 select-text">
                    {task.billNo}
                 </h2>
                 
-                <div className="flex gap-3">
-                   <div className="flex-1 bg-blue-50/60 rounded-xl p-3 border border-blue-100/60 flex items-center gap-2.5 shadow-sm">
-                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
-                        <Tag size={16} strokeWidth={2.5}/>
+                <div className="flex gap-4">
+                   <div className="flex-1 bg-blue-50/60 rounded-xl p-4 border border-blue-100/60 flex items-center gap-3 shadow-sm">
+                      <div className="p-3 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+                        <Tag size={20} strokeWidth={2.5}/>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-0.5">产品编号</div>
-                        <div className="text-sm font-bold text-slate-800 font-mono truncate" title={task.productId}>{task.productId}</div>
+                        <div className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-1">产品编号</div>
+                        <div className="text-base font-bold text-slate-800 font-mono truncate" title={task.productId}>{task.productId}</div>
                       </div>
                    </div>
-                   <div className="flex-1 bg-purple-50/60 rounded-xl p-3 border border-purple-100/60 flex items-center gap-2.5 shadow-sm">
-                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg shadow-sm">
-                        <Package size={16} strokeWidth={2.5}/>
+                   <div className="flex-1 bg-purple-50/60 rounded-xl p-4 border border-purple-100/60 flex items-center gap-3 shadow-sm">
+                      <div className="p-3 bg-purple-100 text-purple-600 rounded-lg shadow-sm">
+                        <Package size={20} strokeWidth={2.5}/>
                       </div>
                       <div>
-                        <div className="text-[10px] text-purple-500 font-bold uppercase tracking-wider mb-0.5">计划数量</div>
-                        <div className="text-sm font-bold text-slate-800 font-mono">{task.qty} <span className="text-xs font-medium text-slate-500">{task.unit}</span></div>
+                        <div className="text-xs text-purple-500 font-bold uppercase tracking-wider mb-1">计划数量</div>
+                        <div className="text-base font-bold text-slate-800 font-mono">{task.qty} <span className="text-sm font-medium text-slate-500">{task.unit}</span></div>
                       </div>
                    </div>
                 </div>
              </div>
              
              {/* Timeline Content */}
-             <div className="flex-1 overflow-y-auto p-5 custom-scrollbar relative">
+             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
                 {/* 连线背景 */}
-                <div className="absolute left-[29px] top-6 bottom-6 w-[2px] bg-slate-200 z-0 rounded-full"></div>
+                <div className="absolute left-[34px] top-6 bottom-6 w-[2px] bg-slate-200 z-0 rounded-full"></div>
                 
-                <div className="space-y-6 relative z-10">
+                <div className="space-y-8 relative z-10">
                    {groupedSegments.map((group, groupIndex) => {
                       const isExpanded = expandedIndices.has(groupIndex);
                       const isMulti = group.items.length > 1;
 
                       return (
-                        <div key={groupIndex} className="relative pl-8 group">
+                        <div key={groupIndex} className="relative pl-10 group">
                            {/* 左侧圆点 */}
-                           <div className="absolute left-[30px] top-[24px] -translate-x-1/2 w-[14px] h-[14px] rounded-full bg-white border-[3px] border-blue-500 shadow-sm z-20 group-hover:scale-110 group-hover:border-blue-600 transition-all duration-300"></div>
+                           <div className="absolute left-[35px] top-[28px] -translate-x-1/2 w-[16px] h-[16px] rounded-full bg-white border-[4px] border-blue-500 shadow-sm z-20 group-hover:scale-110 group-hover:border-blue-600 transition-all duration-300"></div>
                            
                            {/* 卡片容器 */}
-                           <div className="bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+                           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
                               
                               {/* Group Header */}
                               <div 
                                 className={`
-                                  flex items-center justify-between p-4
+                                  flex items-center justify-between p-5
                                   ${isMulti ? 'cursor-pointer hover:bg-slate-50/50 transition-colors' : ''}
                                 `}
                                 onClick={() => isMulti && toggleGroup(groupIndex)}
                               >
-                                 <div className="flex items-center gap-3">
+                                 <div className="flex items-center gap-4">
                                      {/* 序号 */}
-                                     <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 font-mono border border-slate-200">
+                                     <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 font-mono border border-slate-200">
                                        {(groupIndex + 1).toString().padStart(2, '0')}
                                      </div>
                                      <div>
-                                        <h3 className="font-bold text-sm text-slate-800">{group.name}</h3>
-                                        <div className="text-[10px] text-slate-500 font-medium">工序组</div>
+                                        <h3 className="font-bold text-lg text-slate-800">{group.name}</h3>
+                                        <div className="text-xs text-slate-500 font-medium mt-0.5">工序组</div>
                                      </div>
                                  </div>
 
-                                 <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 shadow-sm">
-                                        <Timer size={12} strokeWidth={2.5} />
-                                        <span className="text-xs font-bold font-mono">{formatDuration(group.totalMins)}</span>
+                                 <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+                                        <Timer size={14} strokeWidth={2.5} />
+                                        <span className="text-sm font-bold font-mono">{formatDuration(group.totalMins)}</span>
                                     </div>
                                     {isMulti && (
                                        <div className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                           <ChevronDown size={16} />
+                                           <ChevronDown size={20} />
                                        </div>
                                     )}
                                  </div>
@@ -375,14 +375,14 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 
                               {/* 多段提示条 (折叠状态显示) */}
                               {isMulti && !isExpanded && (
-                                 <div className="px-4 pb-4">
-                                   <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleGroup(groupIndex)}>
+                                 <div className="px-5 pb-5">
+                                   <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleGroup(groupIndex)}>
                                        <div className="flex items-center gap-2">
-                                           <span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-bold">{group.items.length} 个分段</span>
-                                           <span className="text-xs text-slate-500">点击展开</span>
+                                           <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs font-bold">{group.items.length} 个分段</span>
+                                           <span className="text-sm text-slate-500">点击展开</span>
                                        </div>
-                                       <div className="font-mono font-bold text-slate-600 text-xs">
-                                           {safeFormat(group.start, "MM-dd")} <ArrowRight size={12} className="inline mx-0.5"/> {safeFormat(group.end, "MM-dd")}
+                                       <div className="font-mono font-bold text-slate-600 text-sm">
+                                           {safeFormat(group.start, "MM-dd")} <ArrowRight size={14} className="inline mx-1"/> {safeFormat(group.end, "MM-dd")}
                                        </div>
                                    </div>
                                  </div>
@@ -397,47 +397,47 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                     <div 
                                       key={i} 
                                       className={`
-                                        relative px-4 py-3
+                                        relative px-5 py-4
                                         ${i > 0 ? 'border-t border-slate-100 border-dashed' : ''}
                                         hover:bg-blue-50/30 transition-colors group/item
                                       `}
                                     >
                                        {isMulti && (
-                                          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>
+                                          <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>
                                        )}
                                        
-                                       <div className="flex items-center justify-between mb-2">
+                                       <div className="flex items-center justify-between mb-3">
                                           <div className="flex items-center gap-2">
-                                              <div className="p-1 bg-white border border-slate-200 rounded text-slate-500 shadow-sm">
-                                                <Cpu size={14} />
+                                              <div className="p-1.5 bg-white border border-slate-200 rounded-md text-slate-500 shadow-sm">
+                                                <Cpu size={16} />
                                               </div>
-                                              <span className="text-sm font-bold text-slate-800">
-                                                 {seg.machine.replace('#', '')} <span className="text-xs font-normal text-slate-500">号机台</span>
+                                              <span className="text-base font-bold text-slate-800">
+                                                 {seg.machine.replace('#', '')} <span className="text-sm font-normal text-slate-500">号机台</span>
                                               </span>
                                           </div>
                                           {isMulti && (
-                                             <span className="text-[9px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+                                             <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
                                                 分段 {i + 1}
                                              </span>
                                           )}
                                        </div>
                                        
                                        {/* 时间胶囊布局 - 加大 */}
-                                       <div className="flex items-center w-full shadow-sm rounded-lg overflow-hidden border border-slate-200/60 bg-white">
-                                           <div className="flex-1 bg-emerald-50/50 text-emerald-900 px-3 py-1.5 border-r border-dashed border-emerald-100 flex flex-col items-center justify-center">
-                                              <span className="text-[9px] font-bold uppercase text-emerald-600/70 mb-0.5">Start</span>
-                                              <span className="text-xs font-mono font-bold">{safeFormat(seg.start, "MM-dd HH:mm")}</span>
+                                       <div className="flex items-center w-full shadow-sm rounded-xl overflow-hidden border border-slate-200/60 bg-white">
+                                           <div className="flex-1 bg-emerald-50/50 text-emerald-900 px-4 py-2 border-r border-dashed border-emerald-100 flex flex-col items-center justify-center">
+                                              <span className="text-[10px] font-bold uppercase text-emerald-600/70 mb-0.5">Start</span>
+                                              <span className="text-sm font-mono font-bold">{safeFormat(seg.start, "MM-dd HH:mm")}</span>
                                            </div>
                                            
-                                           <div className="w-8 bg-white flex items-center justify-center text-slate-300">
-                                              <ArrowRight size={14} />
+                                           <div className="w-10 bg-white flex items-center justify-center text-slate-300">
+                                              <ArrowRight size={16} />
                                            </div>
 
-                                           <div className="flex-1 bg-rose-50/50 text-rose-900 px-3 py-1.5 border-l border-dashed border-rose-100 flex flex-col items-center justify-center">
-                                              <span className="text-[9px] font-bold uppercase text-rose-600/70 mb-0.5">End</span>
-                                              <span className="text-xs font-mono font-bold">{safeFormat(seg.end, "HH:mm")}</span> 
+                                           <div className="flex-1 bg-rose-50/50 text-rose-900 px-4 py-2 border-l border-dashed border-rose-100 flex flex-col items-center justify-center">
+                                              <span className="text-[10px] font-bold uppercase text-rose-600/70 mb-0.5">End</span>
+                                              <span className="text-sm font-mono font-bold">{safeFormat(seg.end, "HH:mm")}</span> 
                                               {(!isSameDay(seg.start, seg.end)) && (
-                                                  <span className="text-[9px] text-rose-500 font-bold block -mt-1">
+                                                  <span className="text-[10px] text-rose-500 font-bold block -mt-1">
                                                       (+{differenceInCalendarDays(seg.end, seg.start)}d)
                                                   </span>
                                               )}
@@ -453,11 +453,11 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                    })}
                    
                    {/* 结束节点 */}
-                   <div className="relative pl-8 pt-2 pb-6">
-                      <div className="absolute left-[30px] top-3 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-800 z-20 ring-2 ring-white shadow-md"></div>
+                   <div className="relative pl-10 pt-2 pb-8">
+                      <div className="absolute left-[35px] top-3 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 z-20 ring-4 ring-white shadow-md"></div>
                       <div className="ml-3 flex flex-col">
-                          <span className="text-xs font-black text-slate-700 tracking-wider uppercase">全流程结束</span>
-                          <span className="text-[10px] text-slate-500 font-bold mt-0.5">总周期: {formatDuration(task.totalMins)}</span>
+                          <span className="text-sm font-black text-slate-700 tracking-wider uppercase">全流程结束</span>
+                          <span className="text-xs text-slate-500 font-bold mt-1">总周期: {formatDuration(task.totalMins)}</span>
                       </div>
                    </div>
                 </div>
@@ -789,7 +789,7 @@ const TaskCard: React.FC<{
         {/* 
             Background Index Watermark (Smaller for compact card)
         */}
-        <div className="absolute right-2 top-0 text-[3rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0"
+        <div className="absolute right-2 top-0 text-[3.5rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0"
              style={{ fontFamily: 'Inter, sans-serif' }}>
             {String(index + 1).padStart(2, '0')}
         </div>
@@ -800,24 +800,24 @@ const TaskCard: React.FC<{
         <div className="relative z-10 flex flex-col h-full bg-transparent">
             
             {/* Top Bar: 极简状态栏 */}
-            <div className="flex items-center justify-between px-3 pt-2.5 pb-0.5 relative z-20">
-                <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
+            <div className="flex items-center justify-between px-4 pt-3 pb-1 relative z-20">
+                <div className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
                     {isDelay ? '延误' : (isWarning ? '预警' : '正常')}
                 </div>
                 <div className="text-slate-300 group-hover:text-blue-500 transition-colors">
-                   <GripVertical size={14} />
+                   <GripVertical size={16} />
                 </div>
             </div>
 
             {/* Main Info Row: 左右对齐的单号与编号 */}
-            <div className="px-3 flex items-end justify-between gap-2 mt-0.5 relative z-20">
+            <div className="px-4 flex items-end justify-between gap-2 mt-1 relative z-20">
                 {/* Left: Bill No */}
                 <div className="flex-1 min-w-0 pr-3">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <Hash size={10} className="text-slate-400"/>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">生产单号</span>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <Hash size={11} className="text-slate-400"/>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">生产单号</span>
                     </div>
-                    <div className="text-base font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>
+                    <div className="text-lg font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>
                         {task.billNo}
                     </div>
                 </div>
@@ -825,8 +825,8 @@ const TaskCard: React.FC<{
                 {/* Right: Product Code */}
                 <div className="flex-1 min-w-0 text-right">
                     <div className="flex items-center justify-end gap-1 mb-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">产品编号</span>
-                        <Tag size={10} className="text-slate-400"/>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">产品编号</span>
+                        <Tag size={11} className="text-slate-400"/>
                     </div>
                     <div className="text-xs font-bold font-mono text-blue-600 leading-none truncate tracking-tight" title={task.productId}>
                         {task.productId || "N/A"}
@@ -835,50 +835,50 @@ const TaskCard: React.FC<{
             </div>
 
             {/* Divider with Holes */}
-            <div className="relative h-px bg-slate-100 my-2 mx-2 z-10">
+            <div className="relative h-px bg-slate-100 my-2.5 mx-2 z-10">
                 <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-l-transparent border-t-transparent border-b-transparent -rotate-45" style={{boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.05)'}}></div>
                 <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-r-transparent border-t-transparent border-b-transparent 45deg" style={{boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.05)'}}></div>
             </div>
 
             {/* Grid Info */}
-            <div className="px-3 grid grid-cols-2 gap-2 mb-auto relative z-20">
+            <div className="px-4 grid grid-cols-2 gap-3 mb-auto relative z-20">
                 {/* Quantity Box */}
-                <div className="bg-slate-50/80 rounded-lg p-1.5 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[42px]">
-                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
-                        <Package size={10} /> 计划数量
+                <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[48px]">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                        <Package size={11} /> 计划数量
                     </div>
-                    <div className="text-xs font-black font-mono text-slate-700 leading-none">
-                        {task.qty} <span className="text-[9px] font-bold text-slate-400">{task.unit}</span>
+                    <div className="text-sm font-black font-mono text-slate-700 leading-none">
+                        {task.qty} <span className="text-[10px] font-bold text-slate-400">{task.unit}</span>
                     </div>
                 </div>
 
                 {/* Due Date Box */}
-                <div className={`rounded-lg p-1.5 border flex flex-col justify-center min-h-[42px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
-                    <div className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                        <Clock size={10} /> 交货日期
+                <div className={`rounded-lg p-2 border flex flex-col justify-center min-h-[48px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                        <Clock size={11} /> 交货日期
                     </div>
-                    <div className={`text-xs font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                    <div className={`text-sm font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
                         {safeFormat(task.dueTime, "MM-dd")}
                     </div>
                 </div>
             </div>
 
             {/* Footer: Process Route (Refined Style) */}
-            <div className="h-[36px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-3 gap-1.5 overflow-hidden relative mt-auto z-20">
+            <div className="h-[38px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
                  <div className="shrink-0 text-slate-300 mr-0.5">
-                    <FileDigit size={12} />
+                    <FileDigit size={14} />
                  </div>
                  <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar mask-linear-fade py-1">
                     {task.processRoute.map((step, idx) => (
                         <div key={idx} className="flex items-center shrink-0">
                             {idx === 0 ? (
                                 // Active Step: High contrast refined blue capsule
-                                <div className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
-                                    <span className="text-[9px] font-bold leading-none">{step}</span>
+                                <div className="flex items-center justify-center px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
+                                    <span className="text-[10px] font-bold leading-none">{step}</span>
                                 </div>
                             ) : (
                                 // Inactive Steps: Subtle text
-                                <span className="text-[9px] font-semibold text-slate-500 px-0.5">
+                                <span className="text-[10px] font-semibold text-slate-500 px-0.5">
                                     {step}
                                 </span>
                             )}
@@ -917,7 +917,7 @@ const SortableTaskItem: React.FC<{ task: UiTask; index: number; isSelected: bool
 
   return (
     // ID 用于 scrollIntoView 定位
-    <div ref={setNodeRef} style={style} className="mb-3 touch-none" id={`task-row-${task.id}`}>
+    <div ref={setNodeRef} style={style} className="mb-4 touch-none" id={`task-row-${task.id}`}>
        <TaskCard 
           task={task} 
           index={index} 
@@ -1527,11 +1527,11 @@ export default function ApsSchedulingPage() {
              className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
              style={{ width: VIEW_CONFIG.leftColWidth }}
          >
-             <div className="h-[64px] shrink-0 border-b border-white/50 flex items-center px-4 bg-white/50 backdrop-blur-md">
+             <div className="h-[72px] shrink-0 border-b border-white/50 flex items-center px-5 bg-white/50 backdrop-blur-md">
                 <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-base">
                    <Layers className="text-blue-600" size={18}/>
                    排程任务
-                   <span className="ml-1 bg-blue-100 text-blue-700 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
+                   <span className="ml-1 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
                 </div>
                 {/* 过滤器小按钮 */}
                 <div className="ml-auto">
@@ -1540,7 +1540,7 @@ export default function ApsSchedulingPage() {
                         className={`p-1.5 rounded-lg transition-colors ${onlyDelayed ? 'bg-rose-100 text-rose-600' : 'hover:bg-slate-100 text-slate-400'}`}
                         title="只看延误"
                     >
-                        <Filter size={14} />
+                        <Filter size={16} />
                     </button>
                 </div>
              </div>
@@ -1554,7 +1554,7 @@ export default function ApsSchedulingPage() {
                     if (right) right.scrollTop += e.deltaY;
                 }}
              >
-                <div className="py-2 px-3">
+                <div className="py-3 px-4">
                   <DndContext 
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -1592,7 +1592,7 @@ export default function ApsSchedulingPage() {
                         className="z-[9999] cursor-grabbing pointer-events-none"
                       >
                         {activeTask ? (
-                          <div style={{ width: VIEW_CONFIG.leftColWidth - 24 }}>
+                          <div style={{ width: VIEW_CONFIG.leftColWidth - 32 }}>
                             <TaskCard 
                               task={activeTask} 
                               index={activeIndex} 
@@ -1626,7 +1626,7 @@ export default function ApsSchedulingPage() {
             <div style={{ width: Math.max(1000, ganttTotalWidth), minHeight: '100%' }} className="relative group/gantt">
                
                {/* A. 顶部日期头 */}
-               <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[64px]">
+               <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[72px]">
                    {days.map((day, i) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                       const isToday = isSameDay(day, new Date());
@@ -1640,16 +1640,16 @@ export default function ApsSchedulingPage() {
                           style={{ width: VIEW_CONFIG.dayColWidth, height: '100%' }}
                         >
                            <div className="flex-1 flex flex-col justify-center items-center">
-                               <div className={`text-[9px] font-bold uppercase mb-0.5 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
+                               <div className={`text-[10px] font-bold uppercase mb-0.5 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
                                  {WEEKDAYS[day.getDay()]}
                                </div>
                                <div className={`text-lg font-black font-mono leading-none tracking-tight ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
                                  {format(day, "MM-dd")}
                                </div>
                            </div>
-                           <div className="h-[18px] flex w-full border-t border-slate-100">
+                           <div className="h-[20px] flex w-full border-t border-slate-100">
                               {timeSlots.map((hour) => (
-                                <div key={hour} className="flex-1 text-[9px] text-slate-300 font-mono text-center leading-[18px] border-r border-transparent last:border-none">
+                                <div key={hour} className="flex-1 text-[9px] text-slate-300 font-mono text-center leading-[20px] border-r border-transparent last:border-none">
                                     {String(hour).padStart(2,'0')}
                                 </div>
                               ))}
@@ -1661,7 +1661,7 @@ export default function ApsSchedulingPage() {
                </div>
 
                {/* B. 全高背景网格层 */}
-               <div className="absolute top-[64px] bottom-0 left-0 right-0 flex pointer-events-none z-0">
+               <div className="absolute top-[72px] bottom-0 left-0 right-0 flex pointer-events-none z-0">
                   {days.map((d, i) => {
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                       return (
@@ -1685,7 +1685,7 @@ export default function ApsSchedulingPage() {
                {/* C. 交互式光标辅助线 */}
                {guidePos && (
                  <div 
-                   className="absolute top-[64px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center"
+                   className="absolute top-[72px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center"
                    style={{ left: guidePos.x }}
                  >
                     <div className="bg-blue-600 text-white text-[10px] font-mono font-bold px-2 py-1 rounded shadow-lg -mt-8 whitespace-nowrap ring-2 ring-white z-50">
@@ -1696,7 +1696,7 @@ export default function ApsSchedulingPage() {
                )}
 
                {/* D. 甘特条区域 */}
-               <div className="relative z-10 py-2 px-0">
+               <div className="relative z-10 py-3 px-0">
                   {filteredTasks.map((task) => {
                      const taskStartPx = getPosPx(task.start);
                      const taskEndPx = getPosPx(task.end);
@@ -1706,10 +1706,10 @@ export default function ApsSchedulingPage() {
                      const connectionWidth = (validStart && validEnd) ? (taskEndPx - taskStartPx) : 0;
 
                      return (
-                        // 注意：这里需要添加 mb-3 来匹配左侧列表 SortableItem 的间距
+                        // 注意：这里需要添加 mb-4 来匹配左侧列表 SortableItem 的间距
                         <div 
                            key={task.id} 
-                           className="relative w-full mb-3"
+                           className="relative w-full mb-4"
                            style={{ height: VIEW_CONFIG.rowHeight }}
                         >
                            <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
@@ -1737,7 +1737,7 @@ export default function ApsSchedulingPage() {
                                  return (
                                     <div 
                                        key={seg.uniqueKey}
-                                       className="absolute top-1/2 -translate-y-1/2 h-[48px] z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar"
+                                       className="absolute top-1/2 -translate-y-1/2 h-[52px] z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar"
                                        style={{
                                           left: baseLeft + pixelOffset,
                                           width: pixelWidth,
@@ -1761,7 +1761,7 @@ export default function ApsSchedulingPage() {
                                              <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
                                                 <div className={`text-[10px] font-black drop-shadow-sm truncate w-full px-1 ${seg.color.text}`}>{seg.name}</div>
                                                 {pixelWidth > 60 && (
-                                                    <div className={`text-[8px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>
+                                                    <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>
                                                         {safeFormat(seg.start)}
                                                     </div>
                                                 )}
