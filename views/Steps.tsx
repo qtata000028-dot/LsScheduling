@@ -39,7 +39,14 @@ import {
   LocateFixed,
   AlertCircle,
   LogOut,
-  Upload
+  Upload,
+  PauseCircle,
+  Lock,
+  MousePointer2,
+  XCircle,
+  Eye,
+  MoreHorizontal,
+  ArrowUpRight
 } from "lucide-react";
 import { 
   DndContext, 
@@ -67,14 +74,14 @@ import { fetchApsMonths, runApsSchedule, ApsMonthItem, ApsScheduleWarning } from
 import { DashboardContextType } from "../layouts/DashboardLayout"; 
 
 // ==========================================
-// 1. 核心配置 & 样式常量
+// 1. 核心配置 & 样式常量 (1080p 优化版)
 // ==========================================
 
 const VIEW_CONFIG = {
-  dayColWidth: 720,      
-  leftColWidth: 400,     
-  headerHeight: 88,      
-  rowHeight: 180,        
+  dayColWidth: 480,      // 优化：从 720 缩小到 480，1080p下可视范围更广
+  leftColWidth: 320,     // 优化：从 400 缩小到 320，更精致的侧边栏
+  headerHeight: 64,      // 优化：头部变矮，增加内容区高度
+  rowHeight: 132,        // 优化：从 180 缩小到 132，提升纵向信息密度
   workStartHour: 0,      
   workEndHour: 24,       
 };
@@ -128,6 +135,12 @@ interface GroupedSegment {
   end: Date;
   items: UiSegment[];
   isExpanded: boolean;
+}
+
+interface ActiveContextData {
+  segment: UiSegment;
+  task: UiTask;
+  rect: DOMRect;
 }
 
 // ==========================================
@@ -258,7 +271,7 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
       />
       <div 
         className={`
-          fixed top-2 right-2 bottom-2 w-[520px] max-w-[calc(100vw-16px)]
+          fixed top-2 right-2 bottom-2 w-[480px] max-w-[calc(100vw-16px)]
           bg-white shadow-2xl z-[9999] rounded-2xl flex flex-col overflow-hidden ring-1 ring-slate-900/5
           transform transition-transform duration-500 cubic-bezier(0.2, 0.8, 0.2, 1)
           ${isVisible ? 'translate-x-0' : 'translate-x-[110%]'}
@@ -267,94 +280,94 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
         {task && (
           <div className="flex flex-col h-full bg-slate-50/50 relative">
              {/* Header */}
-             <div className="shrink-0 p-6 bg-white/90 backdrop-blur-md border-b border-slate-100 z-10 relative">
-                <div className="flex items-center justify-between mb-4">
+             <div className="shrink-0 p-5 bg-white/90 backdrop-blur-md border-b border-slate-100 z-10 relative">
+                <div className="flex items-center justify-between mb-3">
                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                      <span className="text-[10px] font-black font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                         #{task.detailId}
                       </span>
                       {task.status === 'DELAY' && (
-                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full border border-rose-100 flex items-center gap-1">
-                           <Zap size={14} fill="currentColor" /> 已延误
+                        <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full border border-rose-100 flex items-center gap-1">
+                           <Zap size={12} fill="currentColor" /> 已延误
                         </span>
                       )}
                    </div>
-                   <button onClick={onClose} className="p-2 -mr-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-all">
-                      <ChevronRight size={24} />
+                   <button onClick={onClose} className="p-1.5 -mr-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-all">
+                      <ChevronRight size={20} />
                    </button>
                 </div>
                 
-                <h2 className="text-3xl font-black text-slate-800 font-mono tracking-tight leading-snug mb-6 select-text">
+                <h2 className="text-2xl font-black text-slate-800 font-mono tracking-tight leading-snug mb-4 select-text">
                    {task.billNo}
                 </h2>
                 
-                <div className="flex gap-4">
-                   <div className="flex-1 bg-blue-50/60 rounded-xl p-4 border border-blue-100/60 flex items-center gap-3 shadow-sm">
-                      <div className="p-3 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
-                        <Tag size={20} strokeWidth={2.5}/>
+                <div className="flex gap-3">
+                   <div className="flex-1 bg-blue-50/60 rounded-xl p-3 border border-blue-100/60 flex items-center gap-2.5 shadow-sm">
+                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+                        <Tag size={16} strokeWidth={2.5}/>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs text-blue-500 font-bold uppercase tracking-wider mb-1">产品编号</div>
-                        <div className="text-base font-bold text-slate-800 font-mono truncate" title={task.productId}>{task.productId}</div>
+                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-0.5">产品编号</div>
+                        <div className="text-sm font-bold text-slate-800 font-mono truncate" title={task.productId}>{task.productId}</div>
                       </div>
                    </div>
-                   <div className="flex-1 bg-purple-50/60 rounded-xl p-4 border border-purple-100/60 flex items-center gap-3 shadow-sm">
-                      <div className="p-3 bg-purple-100 text-purple-600 rounded-lg shadow-sm">
-                        <Package size={20} strokeWidth={2.5}/>
+                   <div className="flex-1 bg-purple-50/60 rounded-xl p-3 border border-purple-100/60 flex items-center gap-2.5 shadow-sm">
+                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg shadow-sm">
+                        <Package size={16} strokeWidth={2.5}/>
                       </div>
                       <div>
-                        <div className="text-xs text-purple-500 font-bold uppercase tracking-wider mb-1">计划数量</div>
-                        <div className="text-base font-bold text-slate-800 font-mono">{task.qty} <span className="text-sm font-medium text-slate-500">{task.unit}</span></div>
+                        <div className="text-[10px] text-purple-500 font-bold uppercase tracking-wider mb-0.5">计划数量</div>
+                        <div className="text-sm font-bold text-slate-800 font-mono">{task.qty} <span className="text-xs font-medium text-slate-500">{task.unit}</span></div>
                       </div>
                    </div>
                 </div>
              </div>
              
              {/* Timeline Content */}
-             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
+             <div className="flex-1 overflow-y-auto p-5 custom-scrollbar relative">
                 {/* 连线背景 */}
-                <div className="absolute left-[34px] top-6 bottom-6 w-[2px] bg-slate-200 z-0 rounded-full"></div>
+                <div className="absolute left-[29px] top-6 bottom-6 w-[2px] bg-slate-200 z-0 rounded-full"></div>
                 
-                <div className="space-y-8 relative z-10">
+                <div className="space-y-6 relative z-10">
                    {groupedSegments.map((group, groupIndex) => {
                       const isExpanded = expandedIndices.has(groupIndex);
                       const isMulti = group.items.length > 1;
 
                       return (
-                        <div key={groupIndex} className="relative pl-10 group">
+                        <div key={groupIndex} className="relative pl-8 group">
                            {/* 左侧圆点 */}
-                           <div className="absolute left-[35px] top-[28px] -translate-x-1/2 w-[16px] h-[16px] rounded-full bg-white border-[4px] border-blue-500 shadow-sm z-20 group-hover:scale-110 group-hover:border-blue-600 transition-all duration-300"></div>
+                           <div className="absolute left-[30px] top-[24px] -translate-x-1/2 w-[14px] h-[14px] rounded-full bg-white border-[3px] border-blue-500 shadow-sm z-20 group-hover:scale-110 group-hover:border-blue-600 transition-all duration-300"></div>
                            
                            {/* 卡片容器 */}
-                           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+                           <div className="bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
                               
                               {/* Group Header */}
                               <div 
                                 className={`
-                                  flex items-center justify-between p-5
+                                  flex items-center justify-between p-4
                                   ${isMulti ? 'cursor-pointer hover:bg-slate-50/50 transition-colors' : ''}
                                 `}
                                 onClick={() => isMulti && toggleGroup(groupIndex)}
                               >
-                                 <div className="flex items-center gap-4">
+                                 <div className="flex items-center gap-3">
                                      {/* 序号 */}
-                                     <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 font-mono border border-slate-200">
+                                     <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 font-mono border border-slate-200">
                                        {(groupIndex + 1).toString().padStart(2, '0')}
                                      </div>
                                      <div>
-                                        <h3 className="font-bold text-lg text-slate-800">{group.name}</h3>
-                                        <div className="text-xs text-slate-500 font-medium mt-0.5">工序组</div>
+                                        <h3 className="font-bold text-sm text-slate-800">{group.name}</h3>
+                                        <div className="text-[10px] text-slate-500 font-medium">工序组</div>
                                      </div>
                                  </div>
 
-                                 <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1.5 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
-                                        <Timer size={14} strokeWidth={2.5} />
-                                        <span className="text-sm font-bold font-mono">{formatDuration(group.totalMins)}</span>
+                                 <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-1 rounded-md border border-blue-100 shadow-sm">
+                                        <Timer size={12} strokeWidth={2.5} />
+                                        <span className="text-xs font-bold font-mono">{formatDuration(group.totalMins)}</span>
                                     </div>
                                     {isMulti && (
                                        <div className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                           <ChevronDown size={20} />
+                                           <ChevronDown size={16} />
                                        </div>
                                     )}
                                  </div>
@@ -362,14 +375,14 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
 
                               {/* 多段提示条 (折叠状态显示) */}
                               {isMulti && !isExpanded && (
-                                 <div className="px-5 pb-5">
-                                   <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleGroup(groupIndex)}>
+                                 <div className="px-4 pb-4">
+                                   <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleGroup(groupIndex)}>
                                        <div className="flex items-center gap-2">
-                                           <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs font-bold">{group.items.length} 个分段</span>
-                                           <span className="text-sm text-slate-500">点击展开</span>
+                                           <span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-bold">{group.items.length} 个分段</span>
+                                           <span className="text-xs text-slate-500">点击展开</span>
                                        </div>
-                                       <div className="font-mono font-bold text-slate-600 text-sm">
-                                           {safeFormat(group.start, "MM-dd")} <ArrowRight size={14} className="inline mx-1"/> {safeFormat(group.end, "MM-dd")}
+                                       <div className="font-mono font-bold text-slate-600 text-xs">
+                                           {safeFormat(group.start, "MM-dd")} <ArrowRight size={12} className="inline mx-0.5"/> {safeFormat(group.end, "MM-dd")}
                                        </div>
                                    </div>
                                  </div>
@@ -384,47 +397,47 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                     <div 
                                       key={i} 
                                       className={`
-                                        relative px-5 py-4
+                                        relative px-4 py-3
                                         ${i > 0 ? 'border-t border-slate-100 border-dashed' : ''}
                                         hover:bg-blue-50/30 transition-colors group/item
                                       `}
                                     >
                                        {isMulti && (
-                                          <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>
+                                          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>
                                        )}
                                        
-                                       <div className="flex items-center justify-between mb-3">
+                                       <div className="flex items-center justify-between mb-2">
                                           <div className="flex items-center gap-2">
-                                              <div className="p-1.5 bg-white border border-slate-200 rounded-md text-slate-500 shadow-sm">
-                                                <Cpu size={16} />
+                                              <div className="p-1 bg-white border border-slate-200 rounded text-slate-500 shadow-sm">
+                                                <Cpu size={14} />
                                               </div>
-                                              <span className="text-base font-bold text-slate-800">
-                                                 {seg.machine.replace('#', '')} <span className="text-sm font-normal text-slate-500">号机台</span>
+                                              <span className="text-sm font-bold text-slate-800">
+                                                 {seg.machine.replace('#', '')} <span className="text-xs font-normal text-slate-500">号机台</span>
                                               </span>
                                           </div>
                                           {isMulti && (
-                                             <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+                                             <span className="text-[9px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
                                                 分段 {i + 1}
                                              </span>
                                           )}
                                        </div>
                                        
                                        {/* 时间胶囊布局 - 加大 */}
-                                       <div className="flex items-center w-full shadow-sm rounded-xl overflow-hidden border border-slate-200/60 bg-white">
-                                           <div className="flex-1 bg-emerald-50/50 text-emerald-900 px-4 py-2 border-r border-dashed border-emerald-100 flex flex-col items-center justify-center">
-                                              <span className="text-[10px] font-bold uppercase text-emerald-600/70 mb-0.5">Start</span>
-                                              <span className="text-sm font-mono font-bold">{safeFormat(seg.start, "MM-dd HH:mm")}</span>
+                                       <div className="flex items-center w-full shadow-sm rounded-lg overflow-hidden border border-slate-200/60 bg-white">
+                                           <div className="flex-1 bg-emerald-50/50 text-emerald-900 px-3 py-1.5 border-r border-dashed border-emerald-100 flex flex-col items-center justify-center">
+                                              <span className="text-[9px] font-bold uppercase text-emerald-600/70 mb-0.5">Start</span>
+                                              <span className="text-xs font-mono font-bold">{safeFormat(seg.start, "MM-dd HH:mm")}</span>
                                            </div>
                                            
-                                           <div className="w-10 bg-white flex items-center justify-center text-slate-300">
-                                              <ArrowRight size={16} />
+                                           <div className="w-8 bg-white flex items-center justify-center text-slate-300">
+                                              <ArrowRight size={14} />
                                            </div>
 
-                                           <div className="flex-1 bg-rose-50/50 text-rose-900 px-4 py-2 border-l border-dashed border-rose-100 flex flex-col items-center justify-center">
-                                              <span className="text-[10px] font-bold uppercase text-rose-600/70 mb-0.5">End</span>
-                                              <span className="text-sm font-mono font-bold">{safeFormat(seg.end, "HH:mm")}</span> 
+                                           <div className="flex-1 bg-rose-50/50 text-rose-900 px-3 py-1.5 border-l border-dashed border-rose-100 flex flex-col items-center justify-center">
+                                              <span className="text-[9px] font-bold uppercase text-rose-600/70 mb-0.5">End</span>
+                                              <span className="text-xs font-mono font-bold">{safeFormat(seg.end, "HH:mm")}</span> 
                                               {(!isSameDay(seg.start, seg.end)) && (
-                                                  <span className="text-[10px] text-rose-500 font-bold block -mt-1">
+                                                  <span className="text-[9px] text-rose-500 font-bold block -mt-1">
                                                       (+{differenceInCalendarDays(seg.end, seg.start)}d)
                                                   </span>
                                               )}
@@ -440,11 +453,11 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                    })}
                    
                    {/* 结束节点 */}
-                   <div className="relative pl-10 pt-2 pb-8">
-                      <div className="absolute left-[35px] top-3 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 z-20 ring-4 ring-white shadow-md"></div>
+                   <div className="relative pl-8 pt-2 pb-6">
+                      <div className="absolute left-[30px] top-3 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-800 z-20 ring-2 ring-white shadow-md"></div>
                       <div className="ml-3 flex flex-col">
-                          <span className="text-sm font-black text-slate-700 tracking-wider uppercase">全流程结束</span>
-                          <span className="text-xs text-slate-500 font-bold mt-1">总周期: {formatDuration(task.totalMins)}</span>
+                          <span className="text-xs font-black text-slate-700 tracking-wider uppercase">全流程结束</span>
+                          <span className="text-[10px] text-slate-500 font-bold mt-0.5">总周期: {formatDuration(task.totalMins)}</span>
                       </div>
                    </div>
                 </div>
@@ -479,45 +492,45 @@ const ErrorListDrawer: React.FC<{
            />
            <div 
              className={`
-               fixed top-4 bottom-4 right-4 w-[420px] max-w-[calc(100vw-32px)]
+               fixed top-4 bottom-4 right-4 w-[380px] max-w-[calc(100vw-32px)]
                bg-white/95 backdrop-blur-2xl shadow-2xl z-[9999] rounded-2xl flex flex-col overflow-hidden ring-1 ring-slate-900/5
                transform transition-transform duration-500 cubic-bezier(0.2, 0.8, 0.2, 1)
                ${isOpen ? 'translate-x-0' : 'translate-x-[120%]'}
              `}
            >
               {/* Header */}
-              <div className="shrink-0 p-6 bg-gradient-to-br from-rose-50/80 to-white border-b border-rose-100 z-10">
+              <div className="shrink-0 p-5 bg-gradient-to-br from-rose-50/80 to-white border-b border-rose-100 z-10">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                         <div className="p-3 bg-rose-100 text-rose-600 rounded-xl shadow-sm relative overflow-hidden">
-                             <AlertTriangle size={26} className="relative z-10"/>
+                         <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl shadow-sm relative overflow-hidden">
+                             <AlertTriangle size={20} className="relative z-10"/>
                              <div className="absolute inset-0 bg-rose-200/50 blur-lg transform scale-150"></div>
                          </div>
                          <div>
-                             <h3 className="text-xl font-black text-slate-900 leading-tight">异常监控</h3>
-                             <p className="text-sm text-rose-600 font-bold mt-1">
+                             <h3 className="text-lg font-black text-slate-900 leading-tight">异常监控</h3>
+                             <p className="text-xs text-rose-600 font-bold mt-0.5">
                                  共发现 {errorTasks.length} 项风险
                              </p>
                          </div>
                       </div>
-                      <button onClick={onClose} className="p-2.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                          <X size={24} />
+                      <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                          <X size={20} />
                       </button>
                   </div>
               </div>
 
               {/* List */}
-              <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-slate-50/50">
+              <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50/50">
                   {errorTasks.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                          <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
-                              <Box size={40} className="text-emerald-300" />
+                          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-3">
+                              <Box size={32} className="text-emerald-300" />
                           </div>
-                          <p className="font-bold text-lg text-slate-600">运行平稳</p>
-                          <p className="text-sm mt-1 text-slate-400">当前排程无延误或预警</p>
+                          <p className="font-bold text-base text-slate-600">运行平稳</p>
+                          <p className="text-xs mt-1 text-slate-400">当前排程无延误或预警</p>
                       </div>
                   ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                           {errorTasks.map((t, i) => (
                               <div 
                                 key={t.id}
@@ -525,43 +538,43 @@ const ErrorListDrawer: React.FC<{
                                 onClick={() => onLocate(t.id)}
                               >
                                   {/* 左侧状态条 */}
-                                  <div className={`absolute left-0 top-0 bottom-0 w-2 ${t.status === 'DELAY' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
+                                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${t.status === 'DELAY' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
 
-                                  <div className="p-4 pl-6">
-                                      <div className="flex items-start justify-between mb-2">
+                                  <div className="p-3 pl-5">
+                                      <div className="flex items-start justify-between mb-1.5">
                                           <div className="min-w-0 pr-2">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                  <span className="text-xs text-slate-500 font-bold font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                              <div className="flex items-center gap-1.5 mb-1">
+                                                  <span className="text-[10px] text-slate-500 font-bold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                                                       #{t.billNo}
                                                   </span>
                                                   {t.status === 'DELAY' && (
-                                                      <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
                                                           延误
                                                       </span>
                                                   )}
                                               </div>
-                                              <div className="text-lg font-black text-slate-900 truncate leading-snug tracking-tight" title={t.productName}>
+                                              <div className="text-base font-black text-slate-900 truncate leading-snug tracking-tight" title={t.productName}>
                                                   {t.productName}
                                               </div>
                                           </div>
                                       </div>
                                       
                                       {/* Warning Message Box */}
-                                      <div className={`rounded-lg p-3 text-sm font-medium border flex gap-3 items-start leading-relaxed ${
+                                      <div className={`rounded-lg p-2 text-xs font-medium border flex gap-2 items-start leading-relaxed ${
                                           t.status === 'DELAY' 
                                             ? 'bg-rose-50 text-rose-900 border-rose-100' 
                                             : 'bg-amber-50 text-amber-900 border-amber-100'
                                       }`}>
-                                          <AlertCircle size={18} className={`shrink-0 mt-0.5 ${t.status === 'DELAY' ? 'text-rose-600' : 'text-amber-600'}`}/>
+                                          <AlertCircle size={14} className={`shrink-0 mt-0.5 ${t.status === 'DELAY' ? 'text-rose-600' : 'text-amber-600'}`}/>
                                           <span>
                                               {t.warnings.length > 0 ? t.warnings[0].message : "系统检测到交期风险，建议立即检查工序排程。"}
                                           </span>
                                       </div>
                                       
                                       {/* Hover Action */}
-                                      <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <div className="p-2 bg-blue-600 text-white rounded-lg shadow-lg hover:scale-110 transition-transform">
-                                              <LocateFixed size={18} />
+                                      <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <div className="p-1.5 bg-blue-600 text-white rounded-lg shadow-lg hover:scale-110 transition-transform">
+                                              <LocateFixed size={16} />
                                           </div>
                                       </div>
                                   </div>
@@ -575,15 +588,168 @@ const ErrorListDrawer: React.FC<{
     , document.body);
 };
 
+// 4.3 iOS 风格极致玻璃菜单
+const LongPressOverlay: React.FC<{ 
+    active: ActiveContextData | null; 
+    onClose: () => void;
+    onAction: (type: string, task: UiTask) => void;
+}> = ({ active, onClose, onAction }) => {
+    
+    useEffect(() => {
+        if (active) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [active]);
+
+    if (!active) return null;
+
+    const { rect, segment, task } = active;
+    
+    // 智能定位：优先在下方
+    const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const menuWidth = 240; 
+    const estimatedMenuHeight = 220;
+    
+    const spaceBelow = screenH - rect.bottom;
+    const showAbove = spaceBelow < estimatedMenuHeight + 20; 
+
+    // 横向居中偏移计算
+    const idealLeft = rect.left + rect.width / 2 - menuWidth / 2;
+    const menuLeft = Math.max(20, Math.min(screenW - menuWidth - 20, idealLeft));
+    
+    // 动态计算 transform origin，让动画从点击处展开
+    const transformOriginX = ((rect.left + rect.width / 2) - menuLeft) / menuWidth * 100;
+    const transformOrigin = showAbove ? `${transformOriginX}% 100%` : `${transformOriginX}% 0%`;
+
+    const menuStyle: React.CSSProperties = showAbove 
+        ? { bottom: screenH - rect.top + 16, left: menuLeft, transformOrigin, '--origin': transformOrigin } as any
+        : { top: rect.bottom + 16, left: menuLeft, transformOrigin, '--origin': transformOrigin } as any;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center">
+            {/* 1. 深度模糊背景层 (降低明度，突出前景) */}
+            <div 
+                className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-500 animate-in fade-in"
+                onClick={onClose}
+            ></div>
+
+            {/* 2. 高亮克隆体 (增加呼吸发光效果) */}
+            <div 
+                className="absolute z-[10001] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                style={{
+                    top: rect.top,
+                    left: rect.left,
+                    width: rect.width,
+                    height: rect.height,
+                    transform: 'scale(1.05)', 
+                    boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4)',
+                }}
+            >
+                <div 
+                    className={`
+                    w-full h-full rounded-2xl cursor-default pointer-events-none
+                    ${segment.color.bgGradient} ${segment.color.shadow} border-0 ring-2 ring-white/60
+                    flex flex-col items-center justify-center
+                    relative overflow-hidden
+                    `}
+                >
+                    <div className="absolute inset-x-0 top-0 h-[40%] bg-white/30 rounded-t-2xl pointer-events-none mix-blend-overlay"></div>
+                    {/* Content copy */}
+                    {rect.width > 30 && (
+                        <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
+                        <div className={`text-[11px] font-black drop-shadow-sm truncate w-full px-1 ${segment.color.text}`}>{segment.name}</div>
+                        {rect.width > 60 && (
+                            <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${segment.color.text}`}>
+                                {safeFormat(segment.start)}
+                            </div>
+                        )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 3. iOS 控制中心风格菜单 (高级弹簧动画) */}
+            <div 
+                className="absolute z-[10002] flex flex-col w-[240px] animate-menu-spring"
+                style={menuStyle}
+            >
+                {/* 
+                    Container: 
+                    - bg-white/80: 高透白
+                    - backdrop-blur-3xl: 极致模糊
+                    - backdrop-saturate-150: 增加色彩鲜艳度(Apple vibrancy)
+                */}
+                <div className="bg-white/85 backdrop-blur-3xl backdrop-saturate-150 rounded-[24px] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)] ring-1 ring-white/40 border border-white/20 p-2.5 flex flex-col gap-1.5">
+                    
+                    {/* Header Info (Optional, adds context) */}
+                    <div className="px-3.5 py-2 flex items-center justify-between opacity-50 border-b border-black/5 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800">Actions</span>
+                        <MoreHorizontal size={14} />
+                    </div>
+
+                    {/* Items */}
+                    <button 
+                       onClick={() => { onAction('details', task); onClose(); }}
+                       className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden"
+                    >
+                        <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
+                            <Eye size={18} strokeWidth={2.5}/>
+                            <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[15px] font-bold text-slate-800 leading-tight">查看详情</span>
+                        </div>
+                        <ArrowUpRight size={16} className="ml-auto text-slate-400 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                    </button>
+
+                    <div className="h-px bg-slate-400/10 mx-4"></div>
+
+                    <button 
+                       onClick={() => onClose()} 
+                       className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden"
+                    >
+                        <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
+                            <PauseCircle size={18} strokeWidth={2.5}/>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[15px] font-bold text-slate-800 leading-tight">暂停排程</span>
+                        </div>
+                    </button>
+
+                    <div className="h-px bg-slate-400/10 mx-4"></div>
+
+                    <button 
+                       onClick={() => onClose()} 
+                       className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden"
+                    >
+                        <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
+                            <Lock size={18} strokeWidth={2.5}/>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[15px] font-bold text-slate-800 leading-tight">锁定工序</span>
+                        </div>
+                    </button>
+
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+};
+
 
 // ==========================================
-// 5. 任务卡片组件 (Ticket Style)
+// 5. 任务卡片组件 (Ticket Style - Compact Version)
 // ==========================================
 const TaskCard: React.FC<{
   task: UiTask;
   index: number;
   isSelected?: boolean;
-  isFocused?: boolean; // 新增：是否处于定位高亮状态
+  isFocused?: boolean; 
   isDragging?: boolean;
   onClick?: () => void;
   dragHandleProps?: any; 
@@ -621,9 +787,9 @@ const TaskCard: React.FC<{
         <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${statusColor} z-20`} />
 
         {/* 
-            Background Index Watermark
+            Background Index Watermark (Smaller for compact card)
         */}
-        <div className="absolute right-3 top-0 text-[3.5rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0"
+        <div className="absolute right-2 top-0 text-[3rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0"
              style={{ fontFamily: 'Inter, sans-serif' }}>
             {String(index + 1).padStart(2, '0')}
         </div>
@@ -634,8 +800,8 @@ const TaskCard: React.FC<{
         <div className="relative z-10 flex flex-col h-full bg-transparent">
             
             {/* Top Bar: 极简状态栏 */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-1 relative z-20">
-                <div className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
+            <div className="flex items-center justify-between px-3 pt-2.5 pb-0.5 relative z-20">
+                <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
                     {isDelay ? '延误' : (isWarning ? '预警' : '正常')}
                 </div>
                 <div className="text-slate-300 group-hover:text-blue-500 transition-colors">
@@ -644,88 +810,88 @@ const TaskCard: React.FC<{
             </div>
 
             {/* Main Info Row: 左右对齐的单号与编号 */}
-            <div className="px-4 flex items-end justify-between gap-2 mt-1 relative z-20">
+            <div className="px-3 flex items-end justify-between gap-2 mt-0.5 relative z-20">
                 {/* Left: Bill No */}
-                <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                        <Hash size={11} className="text-slate-400"/>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">生产单号</span>
+                <div className="flex-1 min-w-0 pr-3">
+                    <div className="flex items-center gap-1 mb-0.5">
+                        <Hash size={10} className="text-slate-400"/>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">生产单号</span>
                     </div>
-                    <div className="text-lg font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>
+                    <div className="text-base font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>
                         {task.billNo}
                     </div>
                 </div>
 
                 {/* Right: Product Code */}
                 <div className="flex-1 min-w-0 text-right">
-                    <div className="flex items-center justify-end gap-1.5 mb-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">产品编号</span>
-                        <Tag size={11} className="text-slate-400"/>
+                    <div className="flex items-center justify-end gap-1 mb-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">产品编号</span>
+                        <Tag size={10} className="text-slate-400"/>
                     </div>
-                    <div className="text-sm font-bold font-mono text-blue-600 leading-none truncate tracking-tight" title={task.productId}>
+                    <div className="text-xs font-bold font-mono text-blue-600 leading-none truncate tracking-tight" title={task.productId}>
                         {task.productId || "N/A"}
                     </div>
                 </div>
             </div>
 
             {/* Divider with Holes */}
-            <div className="relative h-px bg-slate-100 my-3 mx-2 z-10">
-                <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-slate-200 rounded-full z-20 box-content border-l-transparent border-t-transparent border-b-transparent -rotate-45" style={{boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.05)'}}></div>
-                <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-slate-200 rounded-full z-20 box-content border-r-transparent border-t-transparent border-b-transparent 45deg" style={{boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.05)'}}></div>
+            <div className="relative h-px bg-slate-100 my-2 mx-2 z-10">
+                <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-l-transparent border-t-transparent border-b-transparent -rotate-45" style={{boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.05)'}}></div>
+                <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-r-transparent border-t-transparent border-b-transparent 45deg" style={{boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.05)'}}></div>
             </div>
 
             {/* Grid Info */}
-            <div className="px-4 grid grid-cols-2 gap-3 mb-auto relative z-20">
+            <div className="px-3 grid grid-cols-2 gap-2 mb-auto relative z-20">
                 {/* Quantity Box */}
-                <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[64px]">
-                    <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">
-                        <Package size={11} /> 计划数量
+                <div className="bg-slate-50/80 rounded-lg p-1.5 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[42px]">
+                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                        <Package size={10} /> 计划数量
                     </div>
-                    <div className="text-sm font-black font-mono text-slate-700 leading-none">
-                        {task.qty} <span className="text-[10px] font-bold text-slate-400">{task.unit}</span>
+                    <div className="text-xs font-black font-mono text-slate-700 leading-none">
+                        {task.qty} <span className="text-[9px] font-bold text-slate-400">{task.unit}</span>
                     </div>
                 </div>
 
                 {/* Due Date Box */}
-                <div className={`rounded-xl p-2.5 border flex flex-col justify-center min-h-[64px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
-                    <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider mb-1 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                        <Clock size={11} /> 交货日期
+                <div className={`rounded-lg p-1.5 border flex flex-col justify-center min-h-[42px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
+                    <div className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
+                        <Clock size={10} /> 交货日期
                     </div>
-                    <div className={`text-sm font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
+                    <div className={`text-xs font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
                         {safeFormat(task.dueTime, "MM-dd")}
                     </div>
                 </div>
             </div>
 
             {/* Footer: Process Route (Refined Style) */}
-            <div className="h-[42px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
-                 <div className="shrink-0 text-slate-300 mr-1">
-                    <FileDigit size={14} />
+            <div className="h-[36px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-3 gap-1.5 overflow-hidden relative mt-auto z-20">
+                 <div className="shrink-0 text-slate-300 mr-0.5">
+                    <FileDigit size={12} />
                  </div>
                  <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar mask-linear-fade py-1">
                     {task.processRoute.map((step, idx) => (
                         <div key={idx} className="flex items-center shrink-0">
                             {idx === 0 ? (
                                 // Active Step: High contrast refined blue capsule
-                                <div className="flex items-center justify-center px-3 py-1 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
-                                    <span className="text-[10px] font-bold leading-none">{step}</span>
+                                <div className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
+                                    <span className="text-[9px] font-bold leading-none">{step}</span>
                                 </div>
                             ) : (
                                 // Inactive Steps: Subtle text
-                                <span className="text-[10px] font-semibold text-slate-500 px-1">
+                                <span className="text-[9px] font-semibold text-slate-500 px-0.5">
                                     {step}
                                 </span>
                             )}
                             
                             {/* Connector */}
                             {idx < task.processRoute.length - 1 && (
-                                <ChevronRight size={12} className="text-slate-300/80 mx-0.5" />
+                                <ChevronRight size={10} className="text-slate-300/80 mx-0.5" />
                             )}
                         </div>
                     ))}
                 </div>
                 {/* Fade effect on right */}
-                <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
             </div>
         </div>
     </div>
@@ -733,7 +899,7 @@ const TaskCard: React.FC<{
 };
 
 // 封装 Sortable 逻辑
-const SortableTaskItem = ({ task, index, isSelected, isFocused, onClick }: { task: UiTask, index: number, isSelected: boolean, isFocused: boolean, onClick: () => void }) => {
+const SortableTaskItem: React.FC<{ task: UiTask; index: number; isSelected: boolean; isFocused: boolean; onClick: () => void }> = ({ task, index, isSelected, isFocused, onClick }) => {
   const {
     attributes,
     listeners,
@@ -751,7 +917,7 @@ const SortableTaskItem = ({ task, index, isSelected, isFocused, onClick }: { tas
 
   return (
     // ID 用于 scrollIntoView 定位
-    <div ref={setNodeRef} style={style} className="mb-4 touch-none" id={`task-row-${task.id}`}>
+    <div ref={setNodeRef} style={style} className="mb-3 touch-none" id={`task-row-${task.id}`}>
        <TaskCard 
           task={task} 
           index={index} 
@@ -778,23 +944,22 @@ export default function ApsSchedulingPage() {
   const [months, setMonths] = useState<ApsMonthItem[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>(""); 
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); // 用户菜单状态
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); 
   
-  // 视图起始时间 (View Window Start)
   const [viewStart, setViewStart] = useState<Date>(startOfMonthDate(new Date()));
   
   const [keyword, setKeyword] = useState("");
   const [onlyDelayed, setOnlyDelayed] = useState(false); 
-  const [selectedTask, setSelectedTask] = useState<UiTask | null>(null); // 点击打开详情
-  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null); // 仅高亮定位
+  const [selectedTask, setSelectedTask] = useState<UiTask | null>(null); 
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null); 
 
-  // 抽屉状态
+  // --- 长按聚焦状态 ---
+  const [activeContext, setActiveContext] = useState<ActiveContextData | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressHandledRef = useRef(false);
+
   const [isErrorDrawerOpen, setIsErrorDrawerOpen] = useState(false);
-
-  // 辅助线状态
   const [guidePos, setGuidePos] = useState<{x: number, timeStr: string} | null>(null);
-  
-  // 拖拽相关状态
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -812,11 +977,10 @@ export default function ApsSchedulingPage() {
      return { total: tasks.length, delay, warning };
   }, [tasks]);
 
-  // 拖拽传感器配置
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // 移动 5px 后才算拖拽，防止点击误触
+        distance: 5, 
       },
     }),
     useSensor(KeyboardSensor, {
@@ -861,8 +1025,6 @@ export default function ApsSchedulingPage() {
   const handleSelectMonth = (mc: string) => {
     setSelectedMonth(mc);
     setIsMonthSelectorOpen(false);
-    // 注意：这里只是触发加载，实际的视图跳转逻辑移到了 loadSchedule 内部
-    // 以便根据实际数据来定起始点
   };
 
   const loadSchedule = async () => {
@@ -935,18 +1097,14 @@ export default function ApsSchedulingPage() {
       
       setTasks(newTasks);
 
-      // --- 关键优化：自动跳转到最早任务日期 ---
       if (newTasks.length > 0) {
-          // 找出所有任务中最早的 start time
           const allStarts = newTasks.map(t => t.start.getTime());
           const minStart = Math.min(...allStarts);
           const earliestDate = new Date(minStart);
           
-          // 如果最早的日期有效，跳转视图到那一天
           if (isValid(earliestDate)) {
              setViewStart(startOfDayDate(earliestDate));
           } else {
-             // 回退到月份首日
              const match = selectedMonth.match(/(\d{4})年(\d{1,2})月/);
              if (match) {
                  const y = parseInt(match[1]);
@@ -955,7 +1113,6 @@ export default function ApsSchedulingPage() {
              }
           }
       } else {
-         // 无数据时，默认回退到所选月份的1号
          const match = selectedMonth.match(/(\d{4})年(\d{1,2})月/);
          if (match) {
              const y = parseInt(match[1]);
@@ -973,8 +1130,6 @@ export default function ApsSchedulingPage() {
 
   useEffect(() => { loadSchedule(); }, [selectedMonth]);
 
-  // 注意：为了支持拖拽排序，filteredTasks 必须基于 tasks 派生
-  // 当 tasks 顺序改变时，filteredTasks 也会按新顺序生成
   const filteredTasks = useMemo(() => {
     let res = tasks;
     if (keyword) {
@@ -982,9 +1137,7 @@ export default function ApsSchedulingPage() {
       res = res.filter(t => 
         t.billNo.toLowerCase().includes(lower) || 
         t.productName.toLowerCase().includes(lower) ||
-        // 增强搜索：产品编号
         t.productId.toLowerCase().includes(lower) ||
-        // 增强搜索：工序名称
         t.processRoute.some(p => p.toLowerCase().includes(lower))
       );
     }
@@ -992,19 +1145,16 @@ export default function ApsSchedulingPage() {
     return res;
   }, [tasks, keyword, onlyDelayed]);
 
-  // --- 关键优化：搜索结果自动跳转视图 ---
   useEffect(() => {
     if (keyword && filteredTasks.length > 0) {
-        // 找到筛选结果中最早的任务开始时间
         const minStart = Math.min(...filteredTasks.map(t => t.start.getTime()));
         const earliest = new Date(minStart);
         if (isValid(earliest)) {
             setViewStart(startOfDayDate(earliest));
         }
     }
-  }, [keyword, filteredTasks]); // 依赖 filteredTasks，当筛选结果变化时也触发
+  }, [keyword, filteredTasks]); 
 
-  // 拖拽事件处理
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -1022,7 +1172,6 @@ export default function ApsSchedulingPage() {
     setActiveId(null);
   };
 
-  // 样式辅助函数：获取位置像素值
   const getPosPx = (date: Date) => {
     const dayInd = differenceInCalendarDays(date, viewStart);
     if (dayInd < 0 || dayInd >= days.length) return -9999;
@@ -1033,47 +1182,35 @@ export default function ApsSchedulingPage() {
     return (dayInd + p) * VIEW_CONFIG.dayColWidth;
   };
 
-  // 定位逻辑
   const handleLocateTask = (taskId: string) => {
-      // 1. 关闭抽屉
       setIsErrorDrawerOpen(false);
-      // 2. 清除筛选，确保任务可见
       setOnlyDelayed(false);
       setKeyword("");
       
       const targetTask = tasks.find(t => t.id === taskId);
 
       if (targetTask) {
-          // --- 关键优化：定位时强制跳转视图日期 ---
           setViewStart(startOfDayDate(targetTask.start));
       }
 
       setTimeout(() => {
-          // 3. 垂直滚动：左侧列表滚动到指定行
           const rowEl = document.getElementById(`task-row-${taskId}`);
           if (rowEl) {
               rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
 
-          // 4. 水平滚动：右侧甘特图滚动到任务开始时间
-          // 注意：因为上面 setViewStart 已经将任务日期设为第一天，所以理论上它会在左侧
-          // 但为了保险（比如任务开始于 08:00），我们还是保留微调滚动
           if (targetTask && rightPanelRef.current) {
              const px = getPosPx(targetTask.start);
-             // 滚动到任务开始位置前一点，留出视觉空间
              rightPanelRef.current.scrollTo({
                  left: Math.max(0, px - 100),
                  behavior: 'smooth'
              });
           }
 
-          // 5. 高亮选中 (不打开详情弹窗)
           setFocusedTaskId(taskId);
-          
-          // 2秒后自动取消高亮，避免干扰
           setTimeout(() => setFocusedTaskId(null), 3000);
 
-      }, 150); // 稍微增加延时，等待 setViewStart 渲染完成
+      }, 150); 
   };
 
   const dropAnimation: DropAnimation = {
@@ -1086,7 +1223,6 @@ export default function ApsSchedulingPage() {
     }),
   };
 
-  // --- 样式辅助 ---
   const getSegmentStyle = (segStart: Date, segEnd: Date) => {
     const startH = segStart.getHours() + segStart.getMinutes() / 60;
     const endH = segEnd.getHours() + segEnd.getMinutes() / 60;
@@ -1105,7 +1241,6 @@ export default function ApsSchedulingPage() {
     };
   };
 
-  // --- 关键优化：按周切换视图 ---
   const handlePrevWeek = () => {
     setViewStart(prev => addDays(prev, -7));
   };
@@ -1131,9 +1266,51 @@ export default function ApsSchedulingPage() {
     }
   };
 
-  // 渲染正在拖拽的浮层卡片
+  // --- 长按处理函数 ---
+  const handlePointerDownSegment = (e: React.PointerEvent, segment: UiSegment, task: UiTask) => {
+      // 仅左键或触摸
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      
+      const target = e.currentTarget as HTMLElement;
+      isLongPressHandledRef.current = false;
+      
+      longPressTimerRef.current = setTimeout(() => {
+          const rect = target.getBoundingClientRect();
+          setActiveContext({ segment, task, rect });
+          isLongPressHandledRef.current = true;
+          // 震动反馈
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              navigator.vibrate(50);
+          }
+      }, 500); // 500ms 触发
+  };
+
+  const handlePointerUpSegment = () => {
+      if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+      }
+  };
+  
+  const handleSegmentClick = (e: React.MouseEvent, task: UiTask) => {
+      e.stopPropagation();
+      if (isLongPressHandledRef.current) {
+          // 如果触发了长按，则阻止默认点击（打开详情）
+          isLongPressHandledRef.current = false;
+          return; 
+      }
+      setSelectedTask(task);
+  };
+
+  // 菜单Action处理
+  const handleMenuAction = (type: string, task: UiTask) => {
+      if (type === 'details') {
+          setSelectedTask(task);
+      }
+      // 其他 action 暂留空
+  };
+
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
-  // 查找 activeTask 在原始 tasks 数组中的索引来显示正确的序号
   const activeIndex = activeId ? tasks.findIndex(t => t.id === activeId) : 0;
 
   return (
@@ -1146,43 +1323,50 @@ export default function ApsSchedulingPage() {
           tasks={tasks}
           onLocate={handleLocateTask}
       />
+      
+      {/* 新增：长按聚焦层 */}
+      <LongPressOverlay 
+          active={activeContext} 
+          onClose={() => setActiveContext(null)} 
+          onAction={handleMenuAction}
+      />
 
       {/* --- 重构：顶部悬浮岛屿式工具栏 --- */}
-      <div className="relative z-50 px-6 py-4 pointer-events-none">
+      <div className="relative z-50 px-4 py-3 pointer-events-none">
          {/* 玻璃岛屿容器 */}
-         <div className="pointer-events-auto bg-white/60 backdrop-blur-2xl border border-white/50 shadow-xl shadow-slate-200/40 rounded-[2rem] p-2 flex items-center justify-between gap-4">
+         <div className="pointer-events-auto bg-white/60 backdrop-blur-2xl border border-white/50 shadow-xl shadow-slate-200/40 rounded-[1.5rem] p-1.5 flex items-center justify-between gap-3 max-w-full overflow-x-auto no-scrollbar">
              
              {/* Left: Search & Month Selector */}
-             <div className="flex items-center gap-4 pl-2">
+             <div className="flex items-center gap-3 pl-1.5">
                  {/* 月份选择器 & 周导航 */}
                  <div className="relative" ref={dropdownRef}>
-                    <div className="flex items-center bg-slate-50/80 border border-slate-200/60 rounded-xl p-1 shadow-inner group transition-all hover:bg-white hover:shadow-md">
+                    <div className="flex items-center bg-slate-50/80 border border-slate-200/60 rounded-xl p-0.5 shadow-inner group transition-all hover:bg-white hover:shadow-md">
                         {/* 左箭头：切换上一周 */}
-                        <button onClick={handlePrevWeek} className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="上一周">
+                        <button onClick={handlePrevWeek} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="上一周">
                             <ChevronLeft size={16}/>
                         </button>
                         
                         {/* 中间：显示当前周期，点击切换月份 */}
                         <div 
                             onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
-                            className="px-3 py-1 cursor-pointer select-none text-center min-w-[100px]"
+                            className="px-2 py-1 cursor-pointer select-none text-center min-w-[80px]"
                         >
-                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">当前排程周期</div>
-                            <div className="text-sm font-black font-mono text-slate-700 group-hover:text-blue-600 transition-colors">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 scale-90">当前排程</div>
+                            <div className="text-xs font-black font-mono text-slate-700 group-hover:text-blue-600 transition-colors">
                                 {/* 显示所选月份，但用户实际上在按周浏览 */}
-                                {selectedMonth || format(viewStart, 'yyyy年MM月')}
+                                {selectedMonth || format(viewStart, 'yyyy-MM')}
                             </div>
                         </div>
 
                         {/* 右箭头：切换下一周 */}
-                        <button onClick={handleNextWeek} className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="下一周">
+                        <button onClick={handleNextWeek} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="下一周">
                             <ChevronRight size={16}/>
                         </button>
                     </div>
 
                     {/* Month Dropdown Panel */}
                     {isMonthSelectorOpen && (
-                        <div className="absolute top-full left-0 mt-3 w-64 bg-white/90 backdrop-blur-2xl border border-white/60 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in zoom-in-95 origin-top-left ring-1 ring-slate-100">
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-white/90 backdrop-blur-2xl border border-white/60 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in zoom-in-95 origin-top-left ring-1 ring-slate-100">
                             <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">
                                 切换数据源 (月度)
                             </div>
@@ -1192,7 +1376,7 @@ export default function ApsSchedulingPage() {
                                     key={m.mc} 
                                     onClick={() => handleSelectMonth(m.mc)} 
                                     className={`
-                                        px-3 py-2.5 rounded-xl text-xs cursor-pointer flex justify-between items-center transition-all mb-1
+                                        px-3 py-2 rounded-xl text-xs cursor-pointer flex justify-between items-center transition-all mb-1
                                         ${selectedMonth === m.mc 
                                             ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100' 
                                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
@@ -1214,25 +1398,25 @@ export default function ApsSchedulingPage() {
                     )}
                  </div>
 
-                 <div className="h-8 w-px bg-slate-200/60 mx-1"></div>
+                 <div className="h-6 w-px bg-slate-200/60 mx-0.5 hidden xl:block"></div>
 
                  {/* 搜索框 (Enhanced Fuzzy Search) */}
                  <div className="relative group/search hidden xl:block">
-                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within/search:text-blue-500 transition-colors" />
+                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within/search:text-blue-500 transition-colors" />
                      <input 
                          value={keyword} 
                          onChange={e => setKeyword(e.target.value)} 
-                         className="pl-9 pr-4 py-2 w-64 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold placeholder:text-slate-400/80 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 focus:w-80 focus:bg-white transition-all outline-none" 
-                         placeholder="搜索产品、单号或工序..." 
+                         className="pl-8 pr-3 py-1.5 w-48 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-bold placeholder:text-slate-400/80 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 focus:w-64 focus:bg-white transition-all outline-none" 
+                         placeholder="搜索产品、单号..." 
                      />
                  </div>
              </div>
 
              {/* Center: Stats Dashboard (Glass Pills) */}
-             <div className="flex items-center gap-3">
-                 <div className="flex flex-col items-center px-4 py-1.5 rounded-xl bg-white/40 border border-white/50">
-                     <span className="text-[9px] font-bold text-slate-400 uppercase">总任务</span>
-                     <span className="text-lg font-black font-mono text-slate-700 leading-none">{stats.total}</span>
+             <div className="flex items-center gap-2">
+                 <div className="flex flex-col items-center px-3 py-1 rounded-xl bg-white/40 border border-white/50 min-w-[70px]">
+                     <span className="text-[9px] font-bold text-slate-400 uppercase scale-90">总任务</span>
+                     <span className="text-sm font-black font-mono text-slate-700 leading-none">{stats.total}</span>
                  </div>
                  
                  {/* 延误 - 可点击 */}
@@ -1240,17 +1424,17 @@ export default function ApsSchedulingPage() {
                      onClick={() => stats.delay > 0 && setIsErrorDrawerOpen(true)}
                      disabled={stats.delay === 0}
                      className={`
-                        relative flex flex-col items-center px-4 py-1.5 rounded-xl border transition-all duration-300
+                        relative flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px]
                         ${stats.delay > 0 
                             ? 'bg-rose-50/80 border-rose-200 cursor-pointer hover:bg-rose-100 hover:scale-105 active:scale-95 shadow-sm hover:shadow-rose-200' 
                             : 'bg-white/40 border-white/50 opacity-60 cursor-default'}
                      `}
                  >
-                     <span className={`text-[9px] font-bold uppercase flex items-center gap-1 ${stats.delay > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                     <span className={`text-[9px] font-bold uppercase flex items-center gap-1 scale-90 ${stats.delay > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
                          严重延误
-                         {stats.delay > 0 && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>}
+                         {stats.delay > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>}
                      </span>
-                     <span className={`text-lg font-black font-mono leading-none ${stats.delay > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                     <span className={`text-sm font-black font-mono leading-none ${stats.delay > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                          {stats.delay}
                      </span>
                  </button>
@@ -1260,57 +1444,57 @@ export default function ApsSchedulingPage() {
                      onClick={() => stats.warning > 0 && setIsErrorDrawerOpen(true)}
                      disabled={stats.warning === 0}
                      className={`
-                        flex flex-col items-center px-4 py-1.5 rounded-xl border transition-all duration-300
+                        flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px]
                         ${stats.warning > 0 
                             ? 'bg-amber-50/80 border-amber-200 cursor-pointer hover:bg-amber-100 hover:scale-105 active:scale-95 shadow-sm' 
                             : 'bg-white/40 border-white/50 opacity-60 cursor-default'}
                      `}
                  >
-                     <span className={`text-[9px] font-bold uppercase ${stats.warning > 0 ? 'text-amber-500' : 'text-slate-400'}`}>工期预警</span>
-                     <span className={`text-lg font-black font-mono leading-none ${stats.warning > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                     <span className={`text-[9px] font-bold uppercase scale-90 ${stats.warning > 0 ? 'text-amber-500' : 'text-slate-400'}`}>工期预警</span>
+                     <span className={`text-sm font-black font-mono leading-none ${stats.warning > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
                          {stats.warning}
                      </span>
                  </button>
              </div>
 
              {/* Right: Tools & User Avatar */}
-             <div className="flex items-center gap-4 pr-2">
+             <div className="flex items-center gap-3 pr-1.5">
                  <button 
                      onClick={loadSchedule} 
                      disabled={loading} 
                      className="
-                        group relative overflow-hidden flex items-center gap-2 px-6 py-2.5 rounded-xl 
+                        group relative overflow-hidden flex items-center gap-2 px-4 py-2 rounded-xl 
                         bg-slate-800 text-white shadow-lg shadow-slate-800/20 
                         hover:shadow-xl hover:shadow-slate-800/30 hover:-translate-y-0.5 active:translate-y-0 transition-all
                      "
                  >
                     <div className="absolute inset-0 bg-gradient-to-r from-slate-700 to-slate-900 transition-opacity group-hover:opacity-90"></div>
-                    <div className="relative flex items-center gap-2">
-                        <PlayCircle size={18} className={`${loading ? "animate-spin" : ""} group-hover:text-blue-300 transition-colors`} /> 
-                        <span className="text-sm font-bold tracking-wide">智能排程</span>
+                    <div className="relative flex items-center gap-1.5">
+                        <PlayCircle size={14} className={`${loading ? "animate-spin" : ""} group-hover:text-blue-300 transition-colors`} /> 
+                        <span className="text-xs font-bold tracking-wide">排程</span>
                     </div>
                  </button>
                  
-                 <div className="h-8 w-px bg-slate-200/60 mx-1 hidden sm:block"></div>
+                 <div className="h-6 w-px bg-slate-200/60 mx-0.5 hidden sm:block"></div>
 
                  {/* 操作员胶囊 (带下拉菜单) */}
                  <div className="relative" ref={userMenuRef}>
                     <button 
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                         className={`
-                            hidden lg:flex items-center gap-2 rounded-full pl-1.5 pr-3 py-1 shadow-sm transition-all duration-300
+                            hidden lg:flex items-center gap-2 rounded-full pl-1 pr-2.5 py-0.5 shadow-sm transition-all duration-300
                             ${isUserMenuOpen ? 'bg-white shadow-md ring-1 ring-blue-100' : 'bg-white/50 border border-white/60 hover:bg-white/80'}
                         `}
                     >
                         <div className="relative">
-                            <img src={avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full border border-white shadow-sm object-cover" />
-                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
+                            <img src={avatarUrl} alt="Avatar" className="w-7 h-7 rounded-full border border-white shadow-sm object-cover" />
+                            <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-2 border-white rounded-full"></div>
                         </div>
                         <div className="flex flex-col text-left">
-                            <span className="text-[9px] text-slate-400 font-bold uppercase leading-none">Planner</span>
-                            <span className="text-xs font-bold text-slate-700 leading-none mt-0.5 max-w-[80px] truncate">{user?.userName || "Admin"}</span>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase leading-none scale-90 origin-left">Planner</span>
+                            <span className="text-[10px] font-bold text-slate-700 leading-none mt-0.5 max-w-[60px] truncate">{user?.userName || "Admin"}</span>
                         </div>
-                        <ChevronDown size={14} className={`text-slate-400 ml-1 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={12} className={`text-slate-400 ml-0.5 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {/* 用户下拉菜单 */}
@@ -1336,27 +1520,27 @@ export default function ApsSchedulingPage() {
       </div>
 
       {/* --- 主滚动区域 --- */}
-      <div className="flex-1 flex overflow-hidden relative -mt-4 pt-4"> 
+      <div className="flex-1 flex overflow-hidden relative -mt-3 pt-3"> 
          
          {/* 1. 左侧固定列表 (Task List) */}
          <div 
              className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
              style={{ width: VIEW_CONFIG.leftColWidth }}
          >
-             <div className="h-[76px] shrink-0 border-b border-white/50 flex items-center px-6 bg-white/50 backdrop-blur-md">
-                <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-lg">
-                   <Layers className="text-blue-600" size={20}/>
+             <div className="h-[64px] shrink-0 border-b border-white/50 flex items-center px-4 bg-white/50 backdrop-blur-md">
+                <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-base">
+                   <Layers className="text-blue-600" size={18}/>
                    排程任务
-                   <span className="ml-2 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
+                   <span className="ml-1 bg-blue-100 text-blue-700 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
                 </div>
                 {/* 过滤器小按钮 */}
                 <div className="ml-auto">
                     <button 
                         onClick={() => setOnlyDelayed(!onlyDelayed)} 
-                        className={`p-2 rounded-lg transition-colors ${onlyDelayed ? 'bg-rose-100 text-rose-600' : 'hover:bg-slate-100 text-slate-400'}`}
+                        className={`p-1.5 rounded-lg transition-colors ${onlyDelayed ? 'bg-rose-100 text-rose-600' : 'hover:bg-slate-100 text-slate-400'}`}
                         title="只看延误"
                     >
-                        <Filter size={16} />
+                        <Filter size={14} />
                     </button>
                 </div>
              </div>
@@ -1370,7 +1554,7 @@ export default function ApsSchedulingPage() {
                     if (right) right.scrollTop += e.deltaY;
                 }}
              >
-                <div className="py-3 px-4">
+                <div className="py-2 px-3">
                   <DndContext 
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -1408,7 +1592,7 @@ export default function ApsSchedulingPage() {
                         className="z-[9999] cursor-grabbing pointer-events-none"
                       >
                         {activeTask ? (
-                          <div style={{ width: VIEW_CONFIG.leftColWidth - 32 }}>
+                          <div style={{ width: VIEW_CONFIG.leftColWidth - 24 }}>
                             <TaskCard 
                               task={activeTask} 
                               index={activeIndex} 
@@ -1442,7 +1626,7 @@ export default function ApsSchedulingPage() {
             <div style={{ width: Math.max(1000, ganttTotalWidth), minHeight: '100%' }} className="relative group/gantt">
                
                {/* A. 顶部日期头 */}
-               <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[76px]">
+               <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[64px]">
                    {days.map((day, i) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                       const isToday = isSameDay(day, new Date());
@@ -1456,16 +1640,16 @@ export default function ApsSchedulingPage() {
                           style={{ width: VIEW_CONFIG.dayColWidth, height: '100%' }}
                         >
                            <div className="flex-1 flex flex-col justify-center items-center">
-                               <div className={`text-[10px] font-bold uppercase mb-1 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
+                               <div className={`text-[9px] font-bold uppercase mb-0.5 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
                                  {WEEKDAYS[day.getDay()]}
                                </div>
-                               <div className={`text-xl font-black font-mono leading-none tracking-tight ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
+                               <div className={`text-lg font-black font-mono leading-none tracking-tight ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
                                  {format(day, "MM-dd")}
                                </div>
                            </div>
-                           <div className="h-[20px] flex w-full border-t border-slate-100">
+                           <div className="h-[18px] flex w-full border-t border-slate-100">
                               {timeSlots.map((hour) => (
-                                <div key={hour} className="flex-1 text-[9px] text-slate-300 font-mono text-center leading-[20px] border-r border-transparent last:border-none">
+                                <div key={hour} className="flex-1 text-[9px] text-slate-300 font-mono text-center leading-[18px] border-r border-transparent last:border-none">
                                     {String(hour).padStart(2,'0')}
                                 </div>
                               ))}
@@ -1477,7 +1661,7 @@ export default function ApsSchedulingPage() {
                </div>
 
                {/* B. 全高背景网格层 */}
-               <div className="absolute top-[76px] bottom-0 left-0 right-0 flex pointer-events-none z-0">
+               <div className="absolute top-[64px] bottom-0 left-0 right-0 flex pointer-events-none z-0">
                   {days.map((d, i) => {
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                       return (
@@ -1501,7 +1685,7 @@ export default function ApsSchedulingPage() {
                {/* C. 交互式光标辅助线 */}
                {guidePos && (
                  <div 
-                   className="absolute top-[76px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center"
+                   className="absolute top-[64px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center"
                    style={{ left: guidePos.x }}
                  >
                     <div className="bg-blue-600 text-white text-[10px] font-mono font-bold px-2 py-1 rounded shadow-lg -mt-8 whitespace-nowrap ring-2 ring-white z-50">
@@ -1512,7 +1696,7 @@ export default function ApsSchedulingPage() {
                )}
 
                {/* D. 甘特条区域 */}
-               <div className="relative z-10 py-3 px-0">
+               <div className="relative z-10 py-2 px-0">
                   {filteredTasks.map((task) => {
                      const taskStartPx = getPosPx(task.start);
                      const taskEndPx = getPosPx(task.end);
@@ -1522,10 +1706,10 @@ export default function ApsSchedulingPage() {
                      const connectionWidth = (validStart && validEnd) ? (taskEndPx - taskStartPx) : 0;
 
                      return (
-                        // 注意：这里需要添加 mb-4 来匹配左侧列表 SortableItem 的间距
+                        // 注意：这里需要添加 mb-3 来匹配左侧列表 SortableItem 的间距
                         <div 
                            key={task.id} 
-                           className="relative w-full mb-4"
+                           className="relative w-full mb-3"
                            style={{ height: VIEW_CONFIG.rowHeight }}
                         >
                            <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
@@ -1534,7 +1718,7 @@ export default function ApsSchedulingPage() {
                                     className="absolute h-full z-0 flex items-center" 
                                     style={{ left: taskStartPx, width: connectionWidth }}
                                   >
-                                     <div className="absolute inset-x-0 h-[4px] bg-slate-200/60 rounded-full"></div>
+                                     <div className="absolute inset-x-0 h-[3px] bg-slate-200/60 rounded-full"></div>
                                   </div>
                                )}
                            </div>
@@ -1553,28 +1737,31 @@ export default function ApsSchedulingPage() {
                                  return (
                                     <div 
                                        key={seg.uniqueKey}
-                                       className="absolute top-1/2 -translate-y-1/2 h-[64px] z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar"
+                                       className="absolute top-1/2 -translate-y-1/2 h-[48px] z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar"
                                        style={{
                                           left: baseLeft + pixelOffset,
                                           width: pixelWidth,
                                        }}
+                                       onPointerDown={(e) => handlePointerDownSegment(e, seg, task)}
+                                       onPointerUp={handlePointerUpSegment}
+                                       onPointerLeave={handlePointerUpSegment}
                                     >
                                        <div 
                                           className={`
-                                            w-full h-full rounded-2xl cursor-pointer pointer-events-auto
+                                            w-full h-full rounded-xl cursor-pointer pointer-events-auto
                                             ${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border}
                                             border flex flex-col items-center justify-center
                                             relative overflow-hidden backdrop-blur-sm
                                           `}
-                                          onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }}
+                                          onClick={(e) => handleSegmentClick(e, task)}
                                        >
-                                          <div className="absolute inset-x-0 top-0 h-[40%] bg-white/20 rounded-t-2xl pointer-events-none"></div>
+                                          <div className="absolute inset-x-0 top-0 h-[40%] bg-white/20 rounded-t-xl pointer-events-none"></div>
                                           
                                           {pixelWidth > 30 && (
                                              <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
-                                                <div className={`text-[11px] font-black drop-shadow-sm truncate w-full px-1 ${seg.color.text}`}>{seg.name}</div>
+                                                <div className={`text-[10px] font-black drop-shadow-sm truncate w-full px-1 ${seg.color.text}`}>{seg.name}</div>
                                                 {pixelWidth > 60 && (
-                                                    <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>
+                                                    <div className={`text-[8px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>
                                                         {safeFormat(seg.start)}
                                                     </div>
                                                 )}
@@ -1582,7 +1769,7 @@ export default function ApsSchedulingPage() {
                                           )}
                                        </div>
                                        
-                                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-800/90 backdrop-blur text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xl opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-opacity z-50">
+                                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-800/90 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-xl opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-opacity z-50">
                                           {seg.name} ({formatDuration(seg.durationMins)})
                                           <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800/90 rotate-45"></div>
                                        </div>
@@ -1599,10 +1786,10 @@ export default function ApsSchedulingPage() {
       </div>
       
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 12px; height: 14px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.5); }
         .custom-scrollbar::-webkit-scrollbar-thumb { 
-           background: #cbd5e1; border: 3px solid transparent; 
+           background: #cbd5e1; border: 2px solid transparent; 
            background-clip: content-box; border-radius: 99px; 
            transition: background 0.2s;
         }
@@ -1616,6 +1803,14 @@ export default function ApsSchedulingPage() {
         }
         .animate-pulse-once {
             animation: pulse-once 1.5s cubic-bezier(0.4, 0, 0.6, 1) 2;
+        }
+        /* New Spring Animation */
+        @keyframes menu-spring {
+          0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-menu-spring {
+          animation: menu-spring 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
       `}</style>
     </div>
