@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useOutletContext } from "react-router-dom"; 
 import { 
@@ -77,17 +77,12 @@ import { DashboardContextType } from "../layouts/DashboardLayout";
 // 1. 核心配置 & 样式常量 (智能分辨率适配)
 // ==========================================
 
-// 简单判断是否为 1080P 或更小屏幕 (通常宽度 <= 1920)
 const isCompactScreen = typeof window !== 'undefined' && window.innerWidth <= 1920;
 
 const VIEW_CONFIG = {
-  // 1080P 下用 540，4K 下用 720
   dayColWidth: isCompactScreen ? 540 : 720,      
-  // 1080P 下用 360，4K 下用 420
   leftColWidth: isCompactScreen ? 360 : 420,     
-  // 1080P 下稍微矮一点的 Header
   headerHeight: isCompactScreen ? 68 : 80,      
-  // 关键：1080P 下增加到 164px 保证底部不被遮挡；4K 下 180px 保持大气
   rowHeight: isCompactScreen ? 164 : 180,        
   workStartHour: 0,      
   workEndHour: 24,       
@@ -227,7 +222,6 @@ const getColor = (str: string) => {
 // 4. 组件 - 抽屉系列
 // ==========================================
 
-// 4.1 任务详情抽屉
 const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> = ({ task, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [expandedIndices, setExpandedIndices] = useState<Set<number>>(new Set());
@@ -286,7 +280,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
       >
         {task && (
           <div className="flex flex-col h-full bg-slate-50/50 relative">
-             {/* Header */}
              <div className="shrink-0 p-6 bg-white/90 backdrop-blur-md border-b border-slate-100 z-10 relative">
                 <div className="flex items-center justify-between mb-4">
                    <div className="flex items-center gap-2">
@@ -330,34 +323,21 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                 </div>
              </div>
              
-             {/* Timeline Content */}
              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
-                {/* 连线背景 */}
                 <div className="absolute left-[34px] top-6 bottom-6 w-[2px] bg-slate-200 z-0 rounded-full"></div>
-                
                 <div className="space-y-8 relative z-10">
                    {groupedSegments.map((group, groupIndex) => {
                       const isExpanded = expandedIndices.has(groupIndex);
                       const isMulti = group.items.length > 1;
-
                       return (
                         <div key={groupIndex} className="relative pl-10 group">
-                           {/* 左侧圆点 */}
                            <div className="absolute left-[35px] top-[28px] -translate-x-1/2 w-[16px] h-[16px] rounded-full bg-white border-[4px] border-blue-500 shadow-sm z-20 group-hover:scale-110 group-hover:border-blue-600 transition-all duration-300"></div>
-                           
-                           {/* 卡片容器 */}
                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-                              
-                              {/* Group Header */}
                               <div 
-                                className={`
-                                  flex items-center justify-between p-5
-                                  ${isMulti ? 'cursor-pointer hover:bg-slate-50/50 transition-colors' : ''}
-                                `}
+                                className={`flex items-center justify-between p-5 ${isMulti ? 'cursor-pointer hover:bg-slate-50/50 transition-colors' : ''}`}
                                 onClick={() => isMulti && toggleGroup(groupIndex)}
                               >
                                  <div className="flex items-center gap-4">
-                                     {/* 序号 */}
                                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 font-mono border border-slate-200">
                                        {(groupIndex + 1).toString().padStart(2, '0')}
                                      </div>
@@ -366,7 +346,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                         <div className="text-xs text-slate-500 font-medium mt-0.5">工序组</div>
                                      </div>
                                  </div>
-
                                  <div className="flex items-center gap-3">
                                     <div className="flex items-center gap-1.5 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
                                         <Timer size={14} strokeWidth={2.5} />
@@ -379,8 +358,6 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                     )}
                                  </div>
                               </div>
-
-                              {/* 多段提示条 (折叠状态显示) */}
                               {isMulti && !isExpanded && (
                                  <div className="px-5 pb-5">
                                    <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => toggleGroup(groupIndex)}>
@@ -394,25 +371,10 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                    </div>
                                  </div>
                               )}
-
-                              {/* 详情列表 */}
-                              <div className={`
-                                 ${isMulti && !isExpanded ? 'hidden' : 'block'}
-                                 ${isMulti ? 'bg-slate-50/50 border-t border-slate-100' : ''}
-                              `}>
+                              <div className={`${isMulti && !isExpanded ? 'hidden' : 'block'} ${isMulti ? 'bg-slate-50/50 border-t border-slate-100' : ''}`}>
                                  {group.items.map((seg, i) => (
-                                    <div 
-                                      key={i} 
-                                      className={`
-                                        relative px-5 py-4
-                                        ${i > 0 ? 'border-t border-slate-100 border-dashed' : ''}
-                                        hover:bg-blue-50/30 transition-colors group/item
-                                      `}
-                                    >
-                                       {isMulti && (
-                                          <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>
-                                       )}
-                                       
+                                    <div key={i} className={`relative px-5 py-4 ${i > 0 ? 'border-t border-slate-100 border-dashed' : ''} hover:bg-blue-50/30 transition-colors group/item`}>
+                                       {isMulti && <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-blue-300/30 group-hover/item:bg-blue-400 transition-colors"></div>}
                                        <div className="flex items-center justify-between mb-3">
                                           <div className="flex items-center gap-2">
                                               <div className="p-1.5 bg-white border border-slate-200 rounded-md text-slate-500 shadow-sm">
@@ -428,18 +390,14 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                              </span>
                                           )}
                                        </div>
-                                       
-                                       {/* 时间胶囊布局 - 加大 */}
                                        <div className="flex items-center w-full shadow-sm rounded-xl overflow-hidden border border-slate-200/60 bg-white">
                                            <div className="flex-1 bg-emerald-50/50 text-emerald-900 px-4 py-2 border-r border-dashed border-emerald-100 flex flex-col items-center justify-center">
                                               <span className="text-[10px] font-bold uppercase text-emerald-600/70 mb-0.5">Start</span>
                                               <span className="text-sm font-mono font-bold">{safeFormat(seg.start, "MM-dd HH:mm")}</span>
                                            </div>
-                                           
                                            <div className="w-10 bg-white flex items-center justify-center text-slate-300">
                                               <ArrowRight size={16} />
                                            </div>
-
                                            <div className="flex-1 bg-rose-50/50 text-rose-900 px-4 py-2 border-l border-dashed border-rose-100 flex flex-col items-center justify-center">
                                               <span className="text-[10px] font-bold uppercase text-rose-600/70 mb-0.5">End</span>
                                               <span className="text-sm font-mono font-bold">{safeFormat(seg.end, "HH:mm")}</span> 
@@ -453,13 +411,10 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
                                     </div>
                                  ))}
                               </div>
-
                            </div>
                         </div>
                       );
                    })}
-                   
-                   {/* 结束节点 */}
                    <div className="relative pl-10 pt-2 pb-8">
                       <div className="absolute left-[35px] top-3 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 z-20 ring-4 ring-white shadow-md"></div>
                       <div className="ml-3 flex flex-col">
@@ -477,18 +432,9 @@ const TaskDetailDrawer: React.FC<{ task: UiTask | null; onClose: () => void }> =
   );
 };
 
-// 4.2 异常列表抽屉
-const ErrorListDrawer: React.FC<{ 
-    isOpen: boolean; 
-    onClose: () => void;
-    tasks: UiTask[];
-    onLocate: (taskId: string) => void;
-}> = ({ isOpen, onClose, tasks, onLocate }) => {
-    
-    // 过滤异常任务
+const ErrorListDrawer: React.FC<{ isOpen: boolean; onClose: () => void; tasks: UiTask[]; onLocate: (taskId: string) => void; }> = ({ isOpen, onClose, tasks, onLocate }) => {
     const errorTasks = useMemo(() => {
-        return tasks.filter(t => t.status === 'DELAY' || t.status === 'WARNING')
-                    .sort((a, b) => (a.status === 'DELAY' ? -1 : 1)); // 延误优先
+        return tasks.filter(t => t.status === 'DELAY' || t.status === 'WARNING').sort((a, b) => (a.status === 'DELAY' ? -1 : 1));
     }, [tasks]);
 
     return createPortal(
@@ -505,7 +451,6 @@ const ErrorListDrawer: React.FC<{
                ${isOpen ? 'translate-x-0' : 'translate-x-[120%]'}
              `}
            >
-              {/* Header */}
               <div className="shrink-0 p-5 bg-gradient-to-br from-rose-50/80 to-white border-b border-rose-100 z-10">
                   <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -520,13 +465,9 @@ const ErrorListDrawer: React.FC<{
                              </p>
                          </div>
                       </div>
-                      <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                          <X size={20} />
-                      </button>
+                      <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"><X size={20} /></button>
                   </div>
               </div>
-
-              {/* List */}
               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50/50">
                   {errorTasks.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-slate-400">
@@ -544,9 +485,7 @@ const ErrorListDrawer: React.FC<{
                                 className="group relative bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1"
                                 onClick={() => onLocate(t.id)}
                               >
-                                  {/* 左侧状态条 */}
                                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${t.status === 'DELAY' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
-
                                   <div className="p-3 pl-5">
                                       <div className="flex items-start justify-between mb-1.5">
                                           <div className="min-w-0 pr-2">
@@ -555,34 +494,20 @@ const ErrorListDrawer: React.FC<{
                                                       #{t.billNo}
                                                   </span>
                                                   {t.status === 'DELAY' && (
-                                                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
-                                                          延误
-                                                      </span>
+                                                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">延误</span>
                                                   )}
                                               </div>
-                                              <div className="text-base font-black text-slate-900 truncate leading-snug tracking-tight" title={t.productName}>
-                                                  {t.productName}
-                                              </div>
+                                              <div className="text-base font-black text-slate-900 truncate leading-snug tracking-tight" title={t.productName}>{t.productName}</div>
                                           </div>
                                       </div>
-                                      
-                                      {/* Warning Message Box */}
                                       <div className={`rounded-lg p-2 text-xs font-medium border flex gap-2 items-start leading-relaxed ${
-                                          t.status === 'DELAY' 
-                                            ? 'bg-rose-50 text-rose-900 border-rose-100' 
-                                            : 'bg-amber-50 text-amber-900 border-amber-100'
+                                          t.status === 'DELAY' ? 'bg-rose-50 text-rose-900 border-rose-100' : 'bg-amber-50 text-amber-900 border-amber-100'
                                       }`}>
                                           <AlertCircle size={14} className={`shrink-0 mt-0.5 ${t.status === 'DELAY' ? 'text-rose-600' : 'text-amber-600'}`}/>
-                                          <span>
-                                              {t.warnings.length > 0 ? t.warnings[0].message : "系统检测到交期风险，建议立即检查工序排程。"}
-                                          </span>
+                                          <span>{t.warnings.length > 0 ? t.warnings[0].message : "系统检测到交期风险，建议立即检查工序排程。"}</span>
                                       </div>
-                                      
-                                      {/* Hover Action */}
                                       <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <div className="p-1.5 bg-blue-600 text-white rounded-lg shadow-lg hover:scale-110 transition-transform">
-                                              <LocateFixed size={16} />
-                                          </div>
+                                          <div className="p-1.5 bg-blue-600 text-white rounded-lg shadow-lg hover:scale-110 transition-transform"><LocateFixed size={16} /></div>
                                       </div>
                                   </div>
                               </div>
@@ -595,13 +520,7 @@ const ErrorListDrawer: React.FC<{
     , document.body);
 };
 
-// 4.3 iOS 风格极致玻璃菜单
-const LongPressOverlay: React.FC<{ 
-    active: ActiveContextData | null; 
-    onClose: () => void;
-    onAction: (type: string, task: UiTask) => void;
-}> = ({ active, onClose, onAction }) => {
-    
+const LongPressOverlay: React.FC<{ active: ActiveContextData | null; onClose: () => void; onAction: (type: string, task: UiTask) => void; }> = ({ active, onClose, onAction }) => {
     useEffect(() => {
         if (active) {
             document.body.style.overflow = 'hidden';
@@ -614,133 +533,67 @@ const LongPressOverlay: React.FC<{
     if (!active) return null;
 
     const { rect, segment, task } = active;
-    
-    // 智能定位：优先在下方
     const screenH = typeof window !== 'undefined' ? window.innerHeight : 800;
     const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const menuWidth = 240; 
     const estimatedMenuHeight = 220;
-    
     const spaceBelow = screenH - rect.bottom;
     const showAbove = spaceBelow < estimatedMenuHeight + 20; 
-
-    // 横向居中偏移计算
     const idealLeft = rect.left + rect.width / 2 - menuWidth / 2;
     const menuLeft = Math.max(20, Math.min(screenW - menuWidth - 20, idealLeft));
-    
-    // 动态计算 transform origin，让动画从点击处展开
     const transformOriginX = ((rect.left + rect.width / 2) - menuLeft) / menuWidth * 100;
     const transformOrigin = showAbove ? `${transformOriginX}% 100%` : `${transformOriginX}% 0%`;
-
     const menuStyle: React.CSSProperties = showAbove 
         ? { bottom: screenH - rect.top + 16, left: menuLeft, transformOrigin, '--origin': transformOrigin } as any
         : { top: rect.bottom + 16, left: menuLeft, transformOrigin, '--origin': transformOrigin } as any;
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center">
-            {/* 1. 深度模糊背景层 (降低明度，突出前景) */}
-            <div 
-                className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-500 animate-in fade-in"
-                onClick={onClose}
-            ></div>
-
-            {/* 2. 高亮克隆体 (增加呼吸发光效果) */}
+            <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-500 animate-in fade-in" onClick={onClose}></div>
             <div 
                 className="absolute z-[10001] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-                style={{
-                    top: rect.top,
-                    left: rect.left,
-                    width: rect.width,
-                    height: rect.height,
-                    transform: 'scale(1.05)', 
-                    boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4)',
-                }}
+                style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, transform: 'scale(1.05)', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4)' }}
             >
-                <div 
-                    className={`
-                    w-full h-full rounded-2xl cursor-default pointer-events-none
-                    ${segment.color.bgGradient} ${segment.color.shadow} border-0 ring-2 ring-white/60
-                    flex flex-col items-center justify-center
-                    relative overflow-hidden
-                    `}
-                >
+                <div className={`w-full h-full rounded-2xl cursor-default pointer-events-none ${segment.color.bgGradient} ${segment.color.shadow} border-0 ring-2 ring-white/60 flex flex-col items-center justify-center relative overflow-hidden`}>
                     <div className="absolute inset-x-0 top-0 h-[40%] bg-white/30 rounded-t-2xl pointer-events-none mix-blend-overlay"></div>
-                    {/* Content copy */}
                     {rect.width > 30 && (
                         <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
                         <div className={`text-[11px] font-black drop-shadow-sm truncate w-full px-1 ${segment.color.text}`}>{segment.name}</div>
                         {rect.width > 60 && (
-                            <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${segment.color.text}`}>
-                                {safeFormat(segment.start)}
-                            </div>
+                            <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${segment.color.text}`}>{safeFormat(segment.start)}</div>
                         )}
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* 3. iOS 控制中心风格菜单 (高级弹簧动画) */}
-            <div 
-                className="absolute z-[10002] flex flex-col w-[240px] animate-menu-spring"
-                style={menuStyle}
-            >
-                {/* 
-                    Container: 
-                    - bg-white/80: 高透白
-                    - backdrop-blur-3xl: 极致模糊
-                    - backdrop-saturate-150: 增加色彩鲜艳度(Apple vibrancy)
-                */}
+            <div className="absolute z-[10002] flex flex-col w-[240px] animate-menu-spring" style={menuStyle}>
                 <div className="bg-white/85 backdrop-blur-3xl backdrop-saturate-150 rounded-[24px] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.3)] ring-1 ring-white/40 border border-white/20 p-2.5 flex flex-col gap-1.5">
-                    
-                    {/* Header Info (Optional, adds context) */}
                     <div className="px-3.5 py-2 flex items-center justify-between opacity-50 border-b border-black/5 mb-1">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-800">Actions</span>
                         <MoreHorizontal size={14} />
                     </div>
-
-                    {/* Items */}
-                    <button 
-                       onClick={() => { onAction('details', task); onClose(); }}
-                       className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden"
-                    >
+                    <button onClick={() => { onAction('details', task); onClose(); }} className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden">
                         <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
                             <Eye size={18} strokeWidth={2.5}/>
                             <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[15px] font-bold text-slate-800 leading-tight">查看详情</span>
-                        </div>
+                        <div className="flex flex-col"><span className="text-[15px] font-bold text-slate-800 leading-tight">查看详情</span></div>
                         <ArrowUpRight size={16} className="ml-auto text-slate-400 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
                     </button>
-
                     <div className="h-px bg-slate-400/10 mx-4"></div>
-
-                    <button 
-                       onClick={() => onClose()} 
-                       className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden"
-                    >
+                    <button onClick={() => onClose()} className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden">
                         <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
                             <PauseCircle size={18} strokeWidth={2.5}/>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[15px] font-bold text-slate-800 leading-tight">暂停排程</span>
-                        </div>
+                        <div className="flex flex-col"><span className="text-[15px] font-bold text-slate-800 leading-tight">暂停排程</span></div>
                     </button>
-
                     <div className="h-px bg-slate-400/10 mx-4"></div>
-
-                    <button 
-                       onClick={() => onClose()} 
-                       className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden"
-                    >
+                    <button onClick={() => onClose()} className="flex items-center gap-4 w-full px-3.5 py-3 rounded-2xl hover:bg-black/5 active:bg-black/10 transition-colors group text-left relative overflow-hidden">
                         <div className="relative shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-white/20 group-hover:scale-105 transition-transform duration-300">
                             <Lock size={18} strokeWidth={2.5}/>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[15px] font-bold text-slate-800 leading-tight">锁定工序</span>
-                        </div>
+                        <div className="flex flex-col"><span className="text-[15px] font-bold text-slate-800 leading-tight">锁定工序</span></div>
                     </button>
-
                 </div>
             </div>
         </div>,
@@ -748,10 +601,7 @@ const LongPressOverlay: React.FC<{
     );
 };
 
-
-// ==========================================
-// 5. 任务卡片组件 (Ticket Style - Compact Version)
-// ==========================================
+// 5. 任务卡片组件 (优化后)
 const TaskCard: React.FC<{
   task: UiTask;
   index: number;
@@ -760,11 +610,9 @@ const TaskCard: React.FC<{
   isDragging?: boolean;
   onClick?: () => void;
   dragHandleProps?: any; 
-}> = ({ task, index, isSelected, isFocused, isDragging, onClick, dragHandleProps }) => {
+}> = React.memo(({ task, index, isSelected, isFocused, isDragging, onClick, dragHandleProps }) => {
   const isDelay = task.status === 'DELAY';
   const isWarning = task.status === 'WARNING';
-  
-  // 状态颜色映射
   const statusColor = isDelay ? 'bg-rose-500' : (isWarning ? 'bg-amber-400' : 'bg-emerald-500');
   const statusBg = isDelay ? 'bg-rose-50' : (isWarning ? 'bg-amber-50' : 'bg-emerald-50');
   const statusText = isDelay ? 'text-rose-600' : (isWarning ? 'text-amber-600' : 'text-emerald-600');
@@ -790,154 +638,78 @@ const TaskCard: React.FC<{
        `}
        onClick={onClick}
     >
-        {/* 左侧装饰条 */}
         <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${statusColor} z-20`} />
-
-        {/* 
-            Background Index Watermark (Smaller for compact card)
-        */}
-        <div className="absolute right-2 top-0 text-[3.5rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0"
-             style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="absolute right-2 top-0 text-[3.5rem] leading-none font-black italic text-slate-100 select-none pointer-events-none z-0" style={{ fontFamily: 'Inter, sans-serif' }}>
             {String(index + 1).padStart(2, '0')}
         </div>
-
-        {/* 
-            Ticket 容器 (Z-Index: 10)
-        */}
         <div className="relative z-10 flex flex-col h-full bg-transparent">
-            
-            {/* Top Bar: 极简状态栏 */}
             <div className="flex items-center justify-between px-4 pt-2.5 pb-1 relative z-20">
                 <div className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusBg} ${statusText} ${statusBorder}`}>
                     {isDelay ? '延误' : (isWarning ? '预警' : '正常')}
                 </div>
-                <div className="text-slate-300 group-hover:text-blue-500 transition-colors">
-                   <GripVertical size={16} />
-                </div>
+                <div className="text-slate-300 group-hover:text-blue-500 transition-colors"><GripVertical size={16} /></div>
             </div>
-
-            {/* Main Info Row: 左右对齐的单号与编号 */}
             <div className="px-4 flex items-end justify-between gap-2 mt-1 relative z-20">
-                {/* Left: Bill No */}
                 <div className="flex-1 min-w-0 pr-3">
                     <div className="flex items-center gap-1.5 mb-0.5">
                         <Hash size={11} className="text-slate-400"/>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">生产单号</span>
                     </div>
-                    <div className="text-lg font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>
-                        {task.billNo}
-                    </div>
+                    <div className="text-lg font-black font-mono text-slate-800 leading-none truncate tracking-tight" title={task.billNo}>{task.billNo}</div>
                 </div>
-
-                {/* Right: Product Code */}
                 <div className="flex-1 min-w-0 text-right">
                     <div className="flex items-center justify-end gap-1 mb-0.5">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">产品编号</span>
                         <Tag size={11} className="text-slate-400"/>
                     </div>
-                    <div className="text-xs font-bold font-mono text-blue-600 leading-none truncate tracking-tight" title={task.productId}>
-                        {task.productId || "N/A"}
-                    </div>
+                    <div className="text-xs font-bold font-mono text-blue-600 leading-none truncate tracking-tight" title={task.productId}>{task.productId || "N/A"}</div>
                 </div>
             </div>
-
-            {/* Divider with Holes */}
             <div className="relative h-px bg-slate-100 my-2 mx-2 z-10">
                 <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-l-transparent border-t-transparent border-b-transparent -rotate-45" style={{boxShadow: 'inset -1px 0 2px rgba(0,0,0,0.05)'}}></div>
                 <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white border border-slate-200 rounded-full z-20 box-content border-r-transparent border-t-transparent border-b-transparent 45deg" style={{boxShadow: 'inset 1px 0 2px rgba(0,0,0,0.05)'}}></div>
             </div>
-
-            {/* Grid Info (Reduced vertical padding/height for 1080p fit) */}
             <div className="px-4 grid grid-cols-2 gap-3 mb-auto relative z-20">
-                {/* Quantity Box */}
                 <div className="bg-slate-50/80 rounded-lg p-1.5 border border-slate-100 flex flex-col justify-center backdrop-blur-sm min-h-[44px]">
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
-                        <Package size={11} /> 计划数量
-                    </div>
-                    <div className="text-sm font-black font-mono text-slate-700 leading-none">
-                        {task.qty} <span className="text-[10px] font-bold text-slate-400">{task.unit}</span>
-                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5"><Package size={11} /> 计划数量</div>
+                    <div className="text-sm font-black font-mono text-slate-700 leading-none">{task.qty} <span className="text-[10px] font-bold text-slate-400">{task.unit}</span></div>
                 </div>
-
-                {/* Due Date Box */}
                 <div className={`rounded-lg p-1.5 border flex flex-col justify-center min-h-[44px] backdrop-blur-sm ${isDelay ? 'bg-rose-50/50 border-rose-100' : 'bg-white/60 border-slate-100'}`}>
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}>
-                        <Clock size={11} /> 交货日期
-                    </div>
-                    <div className={`text-sm font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>
-                        {safeFormat(task.dueTime, "MM-dd")}
-                    </div>
+                    <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isDelay ? 'text-rose-400' : 'text-slate-400'}`}><Clock size={11} /> 交货日期</div>
+                    <div className={`text-sm font-black font-mono leading-none ${isDelay ? 'text-rose-600' : 'text-slate-700'}`}>{safeFormat(task.dueTime, "MM-dd")}</div>
                 </div>
             </div>
-
-            {/* Footer: Process Route (More Compact for 1080p) */}
             <div className="h-[32px] bg-slate-50/40 border-t border-slate-100/60 flex items-center px-4 gap-2 overflow-hidden relative mt-auto z-20">
-                 <div className="shrink-0 text-slate-300 mr-0.5">
-                    <FileDigit size={14} />
-                 </div>
+                 <div className="shrink-0 text-slate-300 mr-0.5"><FileDigit size={14} /></div>
                  <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar mask-linear-fade py-1">
                     {task.processRoute.map((step, idx) => (
                         <div key={idx} className="flex items-center shrink-0">
                             {idx === 0 ? (
-                                // Active Step: High contrast refined blue capsule
-                                <div className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform">
-                                    <span className="text-[10px] font-bold leading-none">{step}</span>
-                                </div>
+                                <div className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm shadow-blue-200 group-hover:scale-105 transition-transform"><span className="text-[10px] font-bold leading-none">{step}</span></div>
                             ) : (
-                                // Inactive Steps: Subtle text
-                                <span className="text-[10px] font-semibold text-slate-500 px-0.5">
-                                    {step}
-                                </span>
+                                <span className="text-[10px] font-semibold text-slate-500 px-0.5">{step}</span>
                             )}
-                            
-                            {/* Connector */}
-                            {idx < task.processRoute.length - 1 && (
-                                <ChevronRight size={10} className="text-slate-300/80 mx-0.5" />
-                            )}
+                            {idx < task.processRoute.length - 1 && <ChevronRight size={10} className="text-slate-300/80 mx-0.5" />}
                         </div>
                     ))}
                 </div>
-                {/* Fade effect on right */}
                 <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
             </div>
         </div>
     </div>
   );
-};
+});
 
-// 封装 Sortable 逻辑
-const SortableTaskItem: React.FC<{ task: UiTask; index: number; isSelected: boolean; isFocused: boolean; onClick: () => void }> = ({ task, index, isSelected, isFocused, onClick }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1, // 拖拽时原位置变淡
-  };
-
+// 封装 Sortable 逻辑 - 增加 Memo
+const SortableTaskItem: React.FC<{ task: UiTask; index: number; isSelected: boolean; isFocused: boolean; onClick: () => void }> = React.memo(({ task, index, isSelected, isFocused, onClick }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   return (
-    // ID 用于 scrollIntoView 定位
     <div ref={setNodeRef} style={style} className="mb-4 touch-none" id={`task-row-${task.id}`}>
-       <TaskCard 
-          task={task} 
-          index={index} 
-          isSelected={isSelected} 
-          isFocused={isFocused}
-          onClick={onClick}
-          // 优化：将拖拽属性传递给 TaskCard，用于绑定到整个容器
-          dragHandleProps={{...attributes, ...listeners}}
-       />
+       <TaskCard task={task} index={index} isSelected={isSelected} isFocused={isFocused} onClick={onClick} dragHandleProps={{...attributes, ...listeners}} />
     </div>
   );
-};
-
+});
 
 // ==========================================
 // 6. 主页面
@@ -954,26 +726,26 @@ export default function ApsSchedulingPage() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false); 
   
   const [viewStart, setViewStart] = useState<Date>(startOfMonthDate(new Date()));
-  
   const [keyword, setKeyword] = useState("");
   const [onlyDelayed, setOnlyDelayed] = useState(false); 
   const [selectedTask, setSelectedTask] = useState<UiTask | null>(null); 
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null); 
 
-  // --- 长按聚焦状态 ---
   const [activeContext, setActiveContext] = useState<ActiveContextData | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressHandledRef = useRef(false);
 
   const [isErrorDrawerOpen, setIsErrorDrawerOpen] = useState(false);
-  const [guidePos, setGuidePos] = useState<{x: number, timeStr: string} | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // 性能优化：使用 ref 直接操作 DOM 元素，避免 State 更新触发重绘
+  const guideLineRef = useRef<HTMLDivElement>(null);
+  const guideLabelRef = useRef<HTMLDivElement>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
   
-  // 统计数据
   const stats = useMemo(() => {
      let delay = 0;
      let warning = 0;
@@ -985,27 +757,26 @@ export default function ApsSchedulingPage() {
   }, [tasks]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5, 
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   
-  const viewEnd = useMemo(() => {
-     return addDays(viewStart, 7);
-  }, [viewStart]);
-  
+  const viewEnd = useMemo(() => addDays(viewStart, 7), [viewStart]);
   const days = useMemo(() => {
     if (!isValid(viewStart) || !isValid(viewEnd) || viewEnd < viewStart) return [];
     return eachDayOfInterval({ start: viewStart, end: viewEnd });
   }, [viewStart, viewEnd]);
 
-  const ganttTotalWidth = days.length * VIEW_CONFIG.dayColWidth;
+  // 使用 CSS Gradient 优化性能，不再生成数千个 div
+  const ganttGridBackground = useMemo(() => {
+      // 模拟每 1/12 (每2小时) 的虚线
+      return {
+          backgroundImage: `linear-gradient(to right, transparent 95%, #e2e8f0 95%)`,
+          backgroundSize: `${(100/12)}% 100%`
+      };
+  }, []);
 
+  const ganttTotalWidth = days.length * VIEW_CONFIG.dayColWidth;
   const timeSlots = Array.from({ length: 12 }, (_, i) => i * 2);
 
   useEffect(() => {
@@ -1041,13 +812,11 @@ export default function ApsSchedulingPage() {
       const res = await runApsSchedule({ fromMc: selectedMonth });
       const map = new Map<number, UiSegment[]>();
       const warns = new Map<number, ApsScheduleWarning[]>();
-      
       (res.warnings || []).forEach(w => {
          const did = Number(getPropSmart(w, ['detailId', 'DetailId', 'did']));
          if (!warns.has(did)) warns.set(did, []);
          warns.get(did)?.push(w);
       });
-
       (res.segments || []).forEach(s => {
          const did = Number(getPropSmart(s, ['detailId', 'DetailId', 'did']));
          if (!map.has(did)) map.set(did, []);
@@ -1056,7 +825,6 @@ export default function ApsSchedulingPage() {
          const mins = Number(getPropSmart(s, ['minutes', 'Minutes', 'mins']) || 0);
          const end = endRaw ? safeDate(endRaw) : addMinutes(start, mins);
          const name = getPropSmart(s, ['processName', 'ProcessName', 'name']) || "工序";
-
          map.get(did)?.push({
            id: `${did}_${Math.random()}`,
            uniqueKey: `${did}_${Math.random()}`,
@@ -1069,18 +837,14 @@ export default function ApsSchedulingPage() {
            color: getColor(name)
          });
       });
-
       const newTasks: UiTask[] = [];
-
       map.forEach((segs, did) => {
          segs.sort((a, b) => a.start.getTime() - b.start.getTime());
          if (segs.length === 0) return;
-
          const myWarns = warns.get(did) || [];
          let status: UiTask["status"] = "NORMAL";
          if (myWarns.some(w => w.level === "ERROR")) status = "DELAY";
          else if (myWarns.some(w => w.level === "WARN")) status = "WARNING";
-
          const detailInfo = res.details?.find(d => Number(getPropSmart(d, ['detailId', 'DetailId', 'did'])) === did);
          newTasks.push({
            id: String(did),
@@ -1101,33 +865,19 @@ export default function ApsSchedulingPage() {
            warnings: myWarns
          });
       });
-      
       setTasks(newTasks);
-
       if (newTasks.length > 0) {
           const allStarts = newTasks.map(t => t.start.getTime());
-          const minStart = Math.min(...allStarts);
-          const earliestDate = new Date(minStart);
-          
-          if (isValid(earliestDate)) {
-             setViewStart(startOfDayDate(earliestDate));
-          } else {
+          const earliestDate = new Date(Math.min(...allStarts));
+          if (isValid(earliestDate)) setViewStart(startOfDayDate(earliestDate));
+          else {
              const match = selectedMonth.match(/(\d{4})年(\d{1,2})月/);
-             if (match) {
-                 const y = parseInt(match[1]);
-                 const m = parseInt(match[2]) - 1;
-                 setViewStart(new Date(y, m, 1));
-             }
+             if (match) setViewStart(new Date(parseInt(match[1]), parseInt(match[2]) - 1, 1));
           }
       } else {
          const match = selectedMonth.match(/(\d{4})年(\d{1,2})月/);
-         if (match) {
-             const y = parseInt(match[1]);
-             const m = parseInt(match[2]) - 1;
-             setViewStart(new Date(y, m, 1));
-         }
+         if (match) setViewStart(new Date(parseInt(match[1]), parseInt(match[2]) - 1, 1));
       }
-
     } catch (e) {
       console.error(e);
     } finally {
@@ -1156,19 +906,13 @@ export default function ApsSchedulingPage() {
     if (keyword && filteredTasks.length > 0) {
         const minStart = Math.min(...filteredTasks.map(t => t.start.getTime()));
         const earliest = new Date(minStart);
-        if (isValid(earliest)) {
-            setViewStart(startOfDayDate(earliest));
-        }
+        if (isValid(earliest)) setViewStart(startOfDayDate(earliest));
     }
   }, [keyword, filteredTasks]); 
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
+  const handleDragStart = (event: DragStartEvent) => setActiveId(event.active.id as string);
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
     if (over && active.id !== over.id) {
       setTasks((items) => {
         const oldIndex = items.findIndex((t) => t.id === active.id);
@@ -1179,7 +923,7 @@ export default function ApsSchedulingPage() {
     setActiveId(null);
   };
 
-  const getPosPx = (date: Date) => {
+  const getPosPx = useCallback((date: Date) => {
     const dayInd = differenceInCalendarDays(date, viewStart);
     if (dayInd < 0 || dayInd >= days.length) return -9999;
     const h = date.getHours() + date.getMinutes() / 60;
@@ -1187,109 +931,78 @@ export default function ApsSchedulingPage() {
     let p = (h - VIEW_CONFIG.workStartHour) / totalH;
     p = Math.max(0, Math.min(1, p));
     return (dayInd + p) * VIEW_CONFIG.dayColWidth;
-  };
+  }, [days, viewStart]);
 
   const handleLocateTask = (taskId: string) => {
       setIsErrorDrawerOpen(false);
       setOnlyDelayed(false);
       setKeyword("");
-      
       const targetTask = tasks.find(t => t.id === taskId);
-
-      if (targetTask) {
-          setViewStart(startOfDayDate(targetTask.start));
-      }
-
+      if (targetTask) setViewStart(startOfDayDate(targetTask.start));
       setTimeout(() => {
           const rowEl = document.getElementById(`task-row-${taskId}`);
-          if (rowEl) {
-              rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-
+          if (rowEl) rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           if (targetTask && rightPanelRef.current) {
              const px = getPosPx(targetTask.start);
-             rightPanelRef.current.scrollTo({
-                 left: Math.max(0, px - 100),
-                 behavior: 'smooth'
-             });
+             rightPanelRef.current.scrollTo({ left: Math.max(0, px - 100), behavior: 'smooth' });
           }
-
           setFocusedTaskId(taskId);
           setTimeout(() => setFocusedTaskId(null), 3000);
-
       }, 150); 
   };
 
-  const dropAnimation: DropAnimation = {
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: {
-        active: {
-          opacity: '0.4',
-        },
-      },
-    }),
-  };
-
-  const getSegmentStyle = (segStart: Date, segEnd: Date) => {
+  const getSegmentStyle = useCallback((segStart: Date, segEnd: Date) => {
     const startH = segStart.getHours() + segStart.getMinutes() / 60;
     const endH = segEnd.getHours() + segEnd.getMinutes() / 60;
     const totalH = VIEW_CONFIG.workEndHour - VIEW_CONFIG.workStartHour;
     const visibleStartH = Math.max(VIEW_CONFIG.workStartHour, Math.min(VIEW_CONFIG.workEndHour, startH));
     const visibleEndH = Math.max(VIEW_CONFIG.workStartHour, Math.min(VIEW_CONFIG.workEndHour, endH));
-    
     if (visibleEndH <= visibleStartH) return null; 
-
-    const leftPercent = (visibleStartH - VIEW_CONFIG.workStartHour) / totalH;
-    const widthPercent = (visibleEndH - visibleStartH) / totalH;
-    
     return { 
-        leftPercent: leftPercent * 100, 
-        widthPercent: widthPercent * 100 
+        leftPercent: (visibleStartH - VIEW_CONFIG.workStartHour) / totalH * 100, 
+        widthPercent: (visibleEndH - visibleStartH) / totalH * 100 
     };
-  };
+  }, []);
 
-  const handlePrevWeek = () => {
-    setViewStart(prev => addDays(prev, -7));
-  };
+  const handlePrevWeek = () => setViewStart(prev => addDays(prev, -7));
+  const handleNextWeek = () => setViewStart(prev => addDays(prev, 7));
 
-  const handleNextWeek = () => {
-    setViewStart(prev => addDays(prev, 7));
-  };
-
+  // 性能关键：直接操作 DOM，避免 React Render
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!rightPanelRef.current) return;
+    if (!rightPanelRef.current || !guideLineRef.current) return;
     const rect = rightPanelRef.current.getBoundingClientRect();
     const scrollLeft = rightPanelRef.current.scrollLeft;
     const x = e.clientX - rect.left + scrollLeft;
-    if (x < 0) return;
-    const totalW = days.length * VIEW_CONFIG.dayColWidth;
-    if (x > totalW) return;
+    
+    // 如果鼠标在可视区域外，隐藏
+    if (x < 0 || x > days.length * VIEW_CONFIG.dayColWidth) {
+        guideLineRef.current.style.display = 'none';
+        return;
+    }
+
+    guideLineRef.current.style.display = 'flex';
+    guideLineRef.current.style.transform = `translateX(${x}px)`;
+
     const dayIndex = Math.floor(x / VIEW_CONFIG.dayColWidth);
     const pxInDay = x % VIEW_CONFIG.dayColWidth;
-    const hours = pxInDay / 30;
-    if (dayIndex >= 0 && dayIndex < days.length) {
+    const hours = pxInDay / (VIEW_CONFIG.dayColWidth / 24);
+    
+    if (dayIndex >= 0 && dayIndex < days.length && guideLabelRef.current) {
         const date = addMinutes(days[dayIndex], hours * 60);
-        setGuidePos({ x, timeStr: format(date, 'MM-dd HH:mm') });
+        guideLabelRef.current.textContent = format(date, 'MM-dd HH:mm');
     }
   };
 
-  // --- 长按处理函数 ---
   const handlePointerDownSegment = (e: React.PointerEvent, segment: UiSegment, task: UiTask) => {
-      // 仅左键或触摸
       if (e.button !== 0 && e.pointerType === 'mouse') return;
-      
       const target = e.currentTarget as HTMLElement;
       isLongPressHandledRef.current = false;
-      
       longPressTimerRef.current = setTimeout(() => {
           const rect = target.getBoundingClientRect();
           setActiveContext({ segment, task, rect });
           isLongPressHandledRef.current = true;
-          // 震动反馈
-          if (typeof navigator !== 'undefined' && navigator.vibrate) {
-              navigator.vibrate(50);
-          }
-      }, 500); // 500ms 触发
+          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
+      }, 500); 
   };
 
   const handlePointerUpSegment = () => {
@@ -1302,19 +1015,14 @@ export default function ApsSchedulingPage() {
   const handleSegmentClick = (e: React.MouseEvent, task: UiTask) => {
       e.stopPropagation();
       if (isLongPressHandledRef.current) {
-          // 如果触发了长按，则阻止默认点击（打开详情）
           isLongPressHandledRef.current = false;
           return; 
       }
       setSelectedTask(task);
   };
 
-  // 菜单Action处理
   const handleMenuAction = (type: string, task: UiTask) => {
-      if (type === 'details') {
-          setSelectedTask(task);
-      }
-      // 其他 action 暂留空
+      if (type === 'details') setSelectedTask(task);
   };
 
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
@@ -1324,82 +1032,39 @@ export default function ApsSchedulingPage() {
     <div className="h-full flex flex-col font-sans text-slate-700 overflow-hidden relative bg-white/50">
       
       <TaskDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
-      <ErrorListDrawer 
-          isOpen={isErrorDrawerOpen} 
-          onClose={() => setIsErrorDrawerOpen(false)}
-          tasks={tasks}
-          onLocate={handleLocateTask}
-      />
-      
-      {/* 新增：长按聚焦层 */}
-      <LongPressOverlay 
-          active={activeContext} 
-          onClose={() => setActiveContext(null)} 
-          onAction={handleMenuAction}
-      />
+      <ErrorListDrawer isOpen={isErrorDrawerOpen} onClose={() => setIsErrorDrawerOpen(false)} tasks={tasks} onLocate={handleLocateTask} />
+      <LongPressOverlay active={activeContext} onClose={() => setActiveContext(null)} onAction={handleMenuAction} />
 
-      {/* --- 重构：顶部悬浮岛屿式工具栏 --- */}
       <div className="relative z-50 px-4 py-3 pointer-events-none">
-         {/* 玻璃岛屿容器 */}
-         <div className="pointer-events-auto bg-white/60 backdrop-blur-2xl border border-white/50 shadow-xl shadow-slate-200/40 rounded-[1.5rem] p-1.5 flex items-center justify-between gap-3 max-w-full overflow-x-auto no-scrollbar">
+         {/* 核心修复：移除 overflow-x-auto，防止绝对定位的下拉菜单被截断 */}
+         <div className="pointer-events-auto bg-white/60 backdrop-blur-2xl border border-white/50 shadow-xl shadow-slate-200/40 rounded-[1.5rem] p-1.5 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3 max-w-full">
              
-             {/* Left: Search & Month Selector */}
+             {/* Left Area */}
              <div className="flex items-center gap-3 pl-1.5">
-                 {/* 月份选择器 & 周导航 */}
+                 {/* 月份/周导航 */}
                  <div className="relative" ref={dropdownRef}>
                     <div className="flex items-center bg-slate-50/80 border border-slate-200/60 rounded-xl p-0.5 shadow-inner group transition-all hover:bg-white hover:shadow-md">
-                        {/* 左箭头：切换上一周 */}
-                        <button onClick={handlePrevWeek} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="上一周">
-                            <ChevronLeft size={16}/>
-                        </button>
+                        <button onClick={handlePrevWeek} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="上一周"><ChevronLeft size={16}/></button>
                         
-                        {/* 中间：显示当前周期，点击切换月份 */}
-                        <div 
-                            onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
-                            className="px-2 py-1 cursor-pointer select-none text-center min-w-[80px]"
-                        >
-                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 scale-90">当前排程</div>
-                            <div className="text-xs font-black font-mono text-slate-700 group-hover:text-blue-600 transition-colors">
-                                {/* 显示所选月份，但用户实际上在按周浏览 */}
-                                {selectedMonth || format(viewStart, 'yyyy-MM')}
-                            </div>
+                        <div onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)} className="px-2 py-1 cursor-pointer select-none text-center min-w-[80px] hover:bg-white/80 rounded-lg transition-colors">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 scale-90 flex items-center justify-center gap-1">当前排程 <ChevronDown size={10}/></div>
+                            <div className="text-xs font-black font-mono text-slate-700 group-hover:text-blue-600 transition-colors">{selectedMonth || format(viewStart, 'yyyy-MM')}</div>
                         </div>
 
-                        {/* 右箭头：切换下一周 */}
-                        <button onClick={handleNextWeek} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="下一周">
-                            <ChevronRight size={16}/>
-                        </button>
+                        <button onClick={handleNextWeek} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="下一周"><ChevronRight size={16}/></button>
                     </div>
 
-                    {/* Month Dropdown Panel */}
+                    {/* 下拉菜单：绝对定位，层级 z-[9999] */}
                     {isMonthSelectorOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-64 bg-white/90 backdrop-blur-2xl border border-white/60 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in zoom-in-95 origin-top-left ring-1 ring-slate-100">
-                            <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">
-                                切换数据源 (月度)
-                            </div>
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-white/95 backdrop-blur-3xl border border-white/60 rounded-2xl shadow-2xl shadow-slate-300/50 p-2 z-[9999] animate-in fade-in zoom-in-95 origin-top-left ring-1 ring-slate-100/50" style={{ maxHeight: '80vh' }}>
+                            <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1">切换数据源 (月度)</div>
                             <div className="max-h-[280px] overflow-y-auto custom-scrollbar">
                             {months.length > 0 ? months.map(m => (
-                                <div 
-                                    key={m.mc} 
-                                    onClick={() => handleSelectMonth(m.mc)} 
-                                    className={`
-                                        px-3 py-2 rounded-xl text-xs cursor-pointer flex justify-between items-center transition-all mb-1
-                                        ${selectedMonth === m.mc 
-                                            ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100' 
-                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
-                                    `}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <CalendarIcon size={14} className={selectedMonth === m.mc ? 'text-blue-500' : 'text-slate-400'}/>
-                                        <span className="font-bold">{m.mc}</span>
-                                    </div>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-md border ${selectedMonth === m.mc ? 'bg-white text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                        {m.orderCount || 0}单
-                                    </span>
+                                <div key={m.mc} onClick={() => handleSelectMonth(m.mc)} className={`px-3 py-2 rounded-xl text-xs cursor-pointer flex justify-between items-center transition-all mb-1 ${selectedMonth === m.mc ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+                                    <div className="flex items-center gap-2"><CalendarIcon size={14} className={selectedMonth === m.mc ? 'text-blue-500' : 'text-slate-400'}/><span className="font-bold">{m.mc}</span></div>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-md border ${selectedMonth === m.mc ? 'bg-white text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{m.orderCount || 0}单</span>
                                 </div>
-                            )) : (
-                                <div className="p-4 text-center text-xs text-slate-400">暂无排程数据</div>
-                            )}
+                            )) : <div className="p-4 text-center text-xs text-slate-400">暂无排程数据</div>}
                             </div>
                         </div>
                     )}
@@ -1407,117 +1072,48 @@ export default function ApsSchedulingPage() {
 
                  <div className="h-6 w-px bg-slate-200/60 mx-0.5 hidden xl:block"></div>
 
-                 {/* 搜索框 (Enhanced Fuzzy Search) */}
-                 <div className="relative group/search hidden xl:block">
+                 {/* 搜索框：修复消失问题，使用 hidden md:block 保证在 1080p 缩放时可见 */}
+                 <div className="relative group/search hidden md:block min-w-[200px]">
                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within/search:text-blue-500 transition-colors" />
-                     <input 
-                         value={keyword} 
-                         onChange={e => setKeyword(e.target.value)} 
-                         className="pl-8 pr-3 py-1.5 w-48 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-bold placeholder:text-slate-400/80 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 focus:w-64 focus:bg-white transition-all outline-none" 
-                         placeholder="搜索产品、单号..." 
-                     />
+                     <input value={keyword} onChange={e => setKeyword(e.target.value)} className="pl-8 pr-3 py-1.5 w-full bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-bold placeholder:text-slate-400/80 focus:ring-2 focus:ring-blue-100 focus:border-blue-300 focus:bg-white transition-all outline-none" placeholder="搜索产品、单号..." />
                  </div>
              </div>
 
-             {/* Center: Stats Dashboard (Glass Pills) */}
+             {/* Center Stats */}
              <div className="flex items-center gap-2">
                  <div className="flex flex-col items-center px-3 py-1 rounded-xl bg-white/40 border border-white/50 min-w-[70px]">
                      <span className="text-[9px] font-bold text-slate-400 uppercase scale-90">总任务</span>
                      <span className="text-sm font-black font-mono text-slate-700 leading-none">{stats.total}</span>
                  </div>
-                 
-                 {/* 延误 - 可点击 */}
-                 <button 
-                     onClick={() => stats.delay > 0 && setIsErrorDrawerOpen(true)}
-                     disabled={stats.delay === 0}
-                     className={`
-                        relative flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px]
-                        ${stats.delay > 0 
-                            ? 'bg-rose-50/80 border-rose-200 cursor-pointer hover:bg-rose-100 hover:scale-105 active:scale-95 shadow-sm hover:shadow-rose-200' 
-                            : 'bg-white/40 border-white/50 opacity-60 cursor-default'}
-                     `}
-                 >
-                     <span className={`text-[9px] font-bold uppercase flex items-center gap-1 scale-90 ${stats.delay > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
-                         严重延误
-                         {stats.delay > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>}
-                     </span>
-                     <span className={`text-sm font-black font-mono leading-none ${stats.delay > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                         {stats.delay}
-                     </span>
+                 <button onClick={() => stats.delay > 0 && setIsErrorDrawerOpen(true)} disabled={stats.delay === 0} className={`relative flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px] ${stats.delay > 0 ? 'bg-rose-50/80 border-rose-200 cursor-pointer hover:bg-rose-100 hover:scale-105 active:scale-95 shadow-sm hover:shadow-rose-200' : 'bg-white/40 border-white/50 opacity-60 cursor-default'}`}>
+                     <span className={`text-[9px] font-bold uppercase flex items-center gap-1 scale-90 ${stats.delay > 0 ? 'text-rose-500' : 'text-slate-400'}`}>严重延误 {stats.delay > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>}</span>
+                     <span className={`text-sm font-black font-mono leading-none ${stats.delay > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{stats.delay}</span>
                  </button>
-
-                 {/* 预警 - 可点击 */}
-                 <button
-                     onClick={() => stats.warning > 0 && setIsErrorDrawerOpen(true)}
-                     disabled={stats.warning === 0}
-                     className={`
-                        flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px]
-                        ${stats.warning > 0 
-                            ? 'bg-amber-50/80 border-amber-200 cursor-pointer hover:bg-amber-100 hover:scale-105 active:scale-95 shadow-sm' 
-                            : 'bg-white/40 border-white/50 opacity-60 cursor-default'}
-                     `}
-                 >
+                 <button onClick={() => stats.warning > 0 && setIsErrorDrawerOpen(true)} disabled={stats.warning === 0} className={`flex flex-col items-center px-3 py-1 rounded-xl border transition-all duration-300 min-w-[70px] ${stats.warning > 0 ? 'bg-amber-50/80 border-amber-200 cursor-pointer hover:bg-amber-100 hover:scale-105 active:scale-95 shadow-sm' : 'bg-white/40 border-white/50 opacity-60 cursor-default'}`}>
                      <span className={`text-[9px] font-bold uppercase scale-90 ${stats.warning > 0 ? 'text-amber-500' : 'text-slate-400'}`}>工期预警</span>
-                     <span className={`text-sm font-black font-mono leading-none ${stats.warning > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                         {stats.warning}
-                     </span>
+                     <span className={`text-sm font-black font-mono leading-none ${stats.warning > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{stats.warning}</span>
                  </button>
              </div>
 
-             {/* Right: Tools & User Avatar */}
+             {/* Right Tools */}
              <div className="flex items-center gap-3 pr-1.5">
-                 <button 
-                     onClick={loadSchedule} 
-                     disabled={loading} 
-                     className="
-                        group relative overflow-hidden flex items-center gap-2 px-4 py-2 rounded-xl 
-                        bg-slate-800 text-white shadow-lg shadow-slate-800/20 
-                        hover:shadow-xl hover:shadow-slate-800/30 hover:-translate-y-0.5 active:translate-y-0 transition-all
-                     "
-                 >
+                 <button onClick={loadSchedule} disabled={loading} className="group relative overflow-hidden flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white shadow-lg shadow-slate-800/20 hover:shadow-xl hover:shadow-slate-800/30 hover:-translate-y-0.5 active:translate-y-0 transition-all">
                     <div className="absolute inset-0 bg-gradient-to-r from-slate-700 to-slate-900 transition-opacity group-hover:opacity-90"></div>
-                    <div className="relative flex items-center gap-1.5">
-                        <PlayCircle size={14} className={`${loading ? "animate-spin" : ""} group-hover:text-blue-300 transition-colors`} /> 
-                        <span className="text-xs font-bold tracking-wide">排程</span>
-                    </div>
+                    <div className="relative flex items-center gap-1.5"><PlayCircle size={14} className={`${loading ? "animate-spin" : ""} group-hover:text-blue-300 transition-colors`} /><span className="text-xs font-bold tracking-wide">排程</span></div>
                  </button>
-                 
                  <div className="h-6 w-px bg-slate-200/60 mx-0.5 hidden sm:block"></div>
-
-                 {/* 操作员胶囊 (带下拉菜单) */}
                  <div className="relative" ref={userMenuRef}>
-                    <button 
-                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className={`
-                            hidden lg:flex items-center gap-2 rounded-full pl-1 pr-2.5 py-0.5 shadow-sm transition-all duration-300
-                            ${isUserMenuOpen ? 'bg-white shadow-md ring-1 ring-blue-100' : 'bg-white/50 border border-white/60 hover:bg-white/80'}
-                        `}
-                    >
-                        <div className="relative">
-                            <img src={avatarUrl} alt="Avatar" className="w-7 h-7 rounded-full border border-white shadow-sm object-cover" />
-                            <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-2 border-white rounded-full"></div>
-                        </div>
-                        <div className="flex flex-col text-left">
-                            <span className="text-[9px] text-slate-400 font-bold uppercase leading-none scale-90 origin-left">Planner</span>
-                            <span className="text-[10px] font-bold text-slate-700 leading-none mt-0.5 max-w-[60px] truncate">{user?.userName || "Admin"}</span>
-                        </div>
+                    <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className={`hidden lg:flex items-center gap-2 rounded-full pl-1 pr-2.5 py-0.5 shadow-sm transition-all duration-300 ${isUserMenuOpen ? 'bg-white shadow-md ring-1 ring-blue-100' : 'bg-white/50 border border-white/60 hover:bg-white/80'}`}>
+                        <div className="relative"><img src={avatarUrl} alt="Avatar" className="w-7 h-7 rounded-full border border-white shadow-sm object-cover" /><div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 border-2 border-white rounded-full"></div></div>
+                        <div className="flex flex-col text-left"><span className="text-[9px] text-slate-400 font-bold uppercase leading-none scale-90 origin-left">Planner</span><span className="text-[10px] font-bold text-slate-700 leading-none mt-0.5 max-w-[60px] truncate">{user?.userName || "Admin"}</span></div>
                         <ChevronDown size={12} className={`text-slate-400 ml-0.5 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
-
-                    {/* 用户下拉菜单 */}
                     {isUserMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-56 bg-white/90 backdrop-blur-xl border border-white/60 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in slide-in-from-top-2 origin-top-right">
-                           <div className="px-3 py-2 border-b border-slate-100/50 mb-1">
-                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">当前账号</p>
-                               <p className="text-sm font-bold text-slate-700 mt-0.5 truncate">{user?.displayName || user?.userName}</p>
-                           </div>
+                           <div className="px-3 py-2 border-b border-slate-100/50 mb-1"><p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">当前账号</p><p className="text-sm font-bold text-slate-700 mt-0.5 truncate">{user?.displayName || user?.userName}</p></div>
                            <div className="space-y-1">
-                               <button onClick={triggerFileUpload} className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all">
-                                  <Upload size={14} className="text-slate-400"/> 更换头像
-                               </button>
-                               <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
-                                  <LogOut size={14} className="text-rose-400"/> 退出登录
-                               </button>
+                               <button onClick={triggerFileUpload} className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all"><Upload size={14} className="text-slate-400"/> 更换头像</button>
+                               <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><LogOut size={14} className="text-rose-400"/> 退出登录</button>
                            </div>
                         </div>
                     )}
@@ -1526,89 +1122,23 @@ export default function ApsSchedulingPage() {
          </div>
       </div>
 
-      {/* --- 主滚动区域 --- */}
       <div className="flex-1 flex overflow-hidden relative -mt-3 pt-3"> 
-         
-         {/* 1. 左侧固定列表 (Task List) */}
-         <div 
-             className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
-             style={{ width: VIEW_CONFIG.leftColWidth }}
-         >
+         <div className="shrink-0 h-full flex flex-col bg-white/60 border-r border-slate-200 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" style={{ width: VIEW_CONFIG.leftColWidth }}>
              <div className="h-[72px] shrink-0 border-b border-white/50 flex items-center px-5 bg-white/50 backdrop-blur-md">
-                <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-base">
-                   <Layers className="text-blue-600" size={18}/>
-                   排程任务
-                   <span className="ml-1 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span>
-                </div>
-                {/* 过滤器小按钮 */}
-                <div className="ml-auto">
-                    <button 
-                        onClick={() => setOnlyDelayed(!onlyDelayed)} 
-                        className={`p-1.5 rounded-lg transition-colors ${onlyDelayed ? 'bg-rose-100 text-rose-600' : 'hover:bg-slate-100 text-slate-400'}`}
-                        title="只看延误"
-                    >
-                        <Filter size={16} />
-                    </button>
-                </div>
+                <div className="flex items-center gap-2 text-slate-700 font-black tracking-tight text-base"><Layers className="text-blue-600" size={18}/>排程任务<span className="ml-1 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full shadow-sm">{filteredTasks.length}</span></div>
+                <div className="ml-auto"><button onClick={() => setOnlyDelayed(!onlyDelayed)} className={`p-1.5 rounded-lg transition-colors ${onlyDelayed ? 'bg-rose-100 text-rose-600' : 'hover:bg-slate-100 text-slate-400'}`} title="只看延误"><Filter size={16} /></button></div>
              </div>
-             
-             {/* 列表区域：隐藏滚动条但保留功能 (no-scrollbar 类已在CSS定义) */}
-             <div 
-                id="left-panel-scroll"
-                className="flex-1 overflow-hidden hover:overflow-y-auto no-scrollbar"
-                onWheel={(e) => {
-                    const right = document.getElementById('right-panel-scroll');
-                    if (right) right.scrollTop += e.deltaY;
-                }}
-             >
+             <div id="left-panel-scroll" className="flex-1 overflow-hidden hover:overflow-y-auto no-scrollbar" onWheel={(e) => { const right = document.getElementById('right-panel-scroll'); if (right) right.scrollTop += e.deltaY; }}>
                 <div className="py-3 px-4">
-                  <DndContext 
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext 
-                      items={filteredTasks.map(t => t.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                    <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                       {filteredTasks.map((task, index) => (
-                        <SortableTaskItem 
-                           key={task.id} 
-                           task={task} 
-                           index={index} 
-                           isSelected={selectedTask?.id === task.id}
-                           isFocused={focusedTaskId === task.id}
-                           onClick={() => setSelectedTask(task)}
-                        />
+                        <SortableTaskItem key={task.id} task={task} index={index} isSelected={selectedTask?.id === task.id} isFocused={focusedTaskId === task.id} onClick={() => setSelectedTask(task)} />
                       ))}
                     </SortableContext>
-                    
                     {createPortal(
-                      <DragOverlay
-                        modifiers={[snapCenterToCursor]}
-                        dropAnimation={{
-                          sideEffects: defaultDropAnimationSideEffects({
-                            styles: {
-                              active: {
-                                opacity: '0.4',
-                              },
-                            },
-                          }),
-                        }}
-                        className="z-[9999] cursor-grabbing pointer-events-none"
-                      >
-                        {activeTask ? (
-                          <div style={{ width: VIEW_CONFIG.leftColWidth - 32 }}>
-                            <TaskCard 
-                              task={activeTask} 
-                              index={activeIndex} 
-                              isSelected={selectedTask?.id === activeTask.id}
-                              isFocused={focusedTaskId === activeTask.id}
-                              isDragging={true}
-                            />
-                          </div>
-                        ) : null}
+                      <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) }} className="z-[9999] cursor-grabbing pointer-events-none">
+                        {activeTask ? (<div style={{ width: VIEW_CONFIG.leftColWidth - 32 }}><TaskCard task={activeTask} index={activeIndex} isSelected={selectedTask?.id === activeTask.id} isFocused={focusedTaskId === activeTask.id} isDragging={true} /></div>) : null}
                       </DragOverlay>,
                       document.body
                     )}
@@ -1618,48 +1148,20 @@ export default function ApsSchedulingPage() {
              </div>
          </div>
 
-         {/* 2. 右侧甘特图 (Gantt Chart) */}
-         <div 
-            id="right-panel-scroll"
-            ref={rightPanelRef}
-            className="flex-1 overflow-auto custom-scrollbar relative bg-slate-50/30"
-            onScroll={(e) => {
-               const leftPanel = document.getElementById('left-panel-scroll');
-               if(leftPanel) leftPanel.scrollTop = e.currentTarget.scrollTop;
-            }}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setGuidePos(null)}
-         >
+         <div id="right-panel-scroll" ref={rightPanelRef} className="flex-1 overflow-auto custom-scrollbar relative bg-slate-50/30" onScroll={(e) => { const leftPanel = document.getElementById('left-panel-scroll'); if(leftPanel) leftPanel.scrollTop = e.currentTarget.scrollTop; }} onMouseMove={handleMouseMove} onMouseLeave={() => { if(guideLineRef.current) guideLineRef.current.style.display = 'none'; }}>
             <div style={{ width: Math.max(1000, ganttTotalWidth), minHeight: '100%' }} className="relative group/gantt">
-               
-               {/* A. 顶部日期头 */}
                <div className="sticky top-0 z-40 flex border-b border-slate-200 bg-white/80 backdrop-blur-md shadow-sm h-[72px]">
                    {days.map((day, i) => {
                       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                       const isToday = isSameDay(day, new Date());
                       return (
-                        <div 
-                          key={i} 
-                          className={`
-                            shrink-0 flex flex-col relative border-r border-slate-200
-                            ${isWeekend ? 'bg-slate-100/60' : 'bg-white/40'}
-                          `}
-                          style={{ width: VIEW_CONFIG.dayColWidth, height: '100%' }}
-                        >
+                        <div key={i} className={`shrink-0 flex flex-col relative border-r border-slate-200 ${isWeekend ? 'bg-slate-100/60' : 'bg-white/40'}`} style={{ width: VIEW_CONFIG.dayColWidth, height: '100%' }}>
                            <div className="flex-1 flex flex-col justify-center items-center">
-                               <div className={`text-[10px] font-bold uppercase mb-0.5 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                                 {WEEKDAYS[day.getDay()]}
-                               </div>
-                               <div className={`text-lg font-black font-mono leading-none tracking-tight ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
-                                 {format(day, "MM-dd")}
-                               </div>
+                               <div className={`text-[10px] font-bold uppercase mb-0.5 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>{WEEKDAYS[day.getDay()]}</div>
+                               <div className={`text-lg font-black font-mono leading-none tracking-tight ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>{format(day, "MM-dd")}</div>
                            </div>
                            <div className="h-[20px] flex w-full border-t border-slate-100">
-                              {timeSlots.map((hour) => (
-                                <div key={hour} className="flex-1 text-[9px] text-slate-300 font-mono text-center leading-[20px] border-r border-transparent last:border-none">
-                                    {String(hour).padStart(2,'0')}
-                                </div>
-                              ))}
+                              {timeSlots.map((hour) => <div key={hour} className="flex-1 text-[9px] text-slate-300 font-mono text-center leading-[20px] border-r border-transparent last:border-none">{String(hour).padStart(2,'0')}</div>)}
                            </div>
                            {isToday && <div className="absolute bottom-0 inset-x-0 h-0.5 bg-blue-500 z-10"></div>}
                         </div>
@@ -1667,115 +1169,68 @@ export default function ApsSchedulingPage() {
                    })}
                </div>
 
-               {/* B. 全高背景网格层 */}
-               <div className="absolute top-[72px] bottom-0 left-0 right-0 flex pointer-events-none z-0">
-                  {days.map((d, i) => {
-                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                      return (
-                          <div 
-                              key={i} 
-                              className={`h-full border-r border-slate-300 relative ${isWeekend ? 'bg-slate-50/60' : ''}`} 
-                              style={{ width: VIEW_CONFIG.dayColWidth }}
-                          >
-                              {Array.from({ length: 12 }).map((_, idx) => (
-                                  <div 
-                                      key={idx} 
-                                      className="absolute top-0 bottom-0 border-r border-dashed border-slate-300"
-                                      style={{ left: `${(idx + 1) * (100 / 12)}%` }} 
-                                  />
-                              ))}
-                          </div>
-                      );
-                  })}
+               {/* 性能优化：使用 Ref 控制的 DOM 元素，不触发 React Render */}
+               <div ref={guideLineRef} className="absolute top-[72px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center hidden" style={{ willChange: 'transform' }}>
+                    <div ref={guideLabelRef} className="bg-blue-600 text-white text-[10px] font-mono font-bold px-2 py-1 rounded shadow-lg -mt-8 whitespace-nowrap ring-2 ring-white z-50"></div>
+                    <div className="absolute bottom-0 w-3 h-3 bg-blue-500 rounded-full blur-[2px] opacity-50"></div>
                </div>
 
-               {/* C. 交互式光标辅助线 */}
-               {guidePos && (
-                 <div 
-                   className="absolute top-[72px] bottom-0 w-[1.5px] bg-blue-500 z-50 pointer-events-none flex flex-col items-center"
-                   style={{ left: guidePos.x }}
-                 >
-                    <div className="bg-blue-600 text-white text-[10px] font-mono font-bold px-2 py-1 rounded shadow-lg -mt-8 whitespace-nowrap ring-2 ring-white z-50">
-                       {guidePos.timeStr}
-                    </div>
-                    <div className="absolute bottom-0 w-3 h-3 bg-blue-500 rounded-full blur-[2px] opacity-50"></div>
-                 </div>
-               )}
-
-               {/* D. 甘特条区域 */}
                <div className="relative z-10 py-3 px-0">
+                  {/* 背景网格 - 性能优化版本 (CSS Gradient) */}
+                  <div className="absolute inset-0 z-0 pointer-events-none flex" style={{ top: 0 }}>
+                      {days.map((d, i) => {
+                          const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                          return (
+                              <div key={i} className={`h-full border-r border-slate-300/50 relative ${isWeekend ? 'bg-slate-100/30' : ''}`} style={{ width: VIEW_CONFIG.dayColWidth, ...ganttGridBackground }} />
+                          );
+                      })}
+                  </div>
+
                   {filteredTasks.map((task) => {
                      const taskStartPx = getPosPx(task.start);
                      const taskEndPx = getPosPx(task.end);
-                     
                      const validStart = taskStartPx > -5000;
                      const validEnd = taskEndPx > -5000;
                      const connectionWidth = (validStart && validEnd) ? (taskEndPx - taskStartPx) : 0;
 
                      return (
-                        // 注意：这里需要添加 mb-4 来匹配左侧列表 SortableItem 的间距
-                        <div 
-                           key={task.id} 
-                           className="relative w-full mb-4"
-                           style={{ height: VIEW_CONFIG.rowHeight }}
-                        >
+                        <div key={task.id} className="relative w-full mb-4 z-10" style={{ height: VIEW_CONFIG.rowHeight }}>
                            <div className="absolute top-1/2 left-0 h-4 w-full pointer-events-none" style={{ transform: 'translateY(-50%)' }}>
                                {connectionWidth > 0 && (
-                                  <div 
-                                    className="absolute h-full z-0 flex items-center" 
-                                    style={{ left: taskStartPx, width: connectionWidth }}
-                                  >
+                                  <div className="absolute h-full z-0 flex items-center" style={{ left: taskStartPx, width: connectionWidth }}>
                                      <div className="absolute inset-x-0 h-[3px] bg-slate-200/60 rounded-full"></div>
                                   </div>
                                )}
                            </div>
-
                            {task.segments.map(seg => {
                                  const dayIndex = differenceInCalendarDays(seg.start, viewStart);
                                  if (dayIndex < 0 || dayIndex >= days.length) return null;
-
                                  const style = getSegmentStyle(seg.start, seg.end);
                                  if (!style) return null;
-
                                  const baseLeft = dayIndex * VIEW_CONFIG.dayColWidth;
                                  const pixelOffset = (VIEW_CONFIG.dayColWidth * style.leftPercent) / 100;
                                  const pixelWidth = Math.max(4, (VIEW_CONFIG.dayColWidth * style.widthPercent) / 100);
-
                                  return (
                                     <div 
                                        key={seg.uniqueKey}
                                        className="absolute top-1/2 -translate-y-1/2 h-[52px] z-10 transition-all duration-300 hover:z-20 hover:scale-105 group/bar"
-                                       style={{
-                                          left: baseLeft + pixelOffset,
-                                          width: pixelWidth,
-                                       }}
+                                       style={{ left: baseLeft + pixelOffset, width: pixelWidth }}
                                        onPointerDown={(e) => handlePointerDownSegment(e, seg, task)}
                                        onPointerUp={handlePointerUpSegment}
                                        onPointerLeave={handlePointerUpSegment}
                                     >
                                        <div 
-                                          className={`
-                                            w-full h-full rounded-xl cursor-pointer pointer-events-auto
-                                            ${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border}
-                                            border flex flex-col items-center justify-center
-                                            relative overflow-hidden backdrop-blur-sm
-                                          `}
+                                          className={`w-full h-full rounded-xl cursor-pointer pointer-events-auto ${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border} border flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm`}
                                           onClick={(e) => handleSegmentClick(e, task)}
                                        >
                                           <div className="absolute inset-x-0 top-0 h-[40%] bg-white/20 rounded-t-xl pointer-events-none"></div>
-                                          
                                           {pixelWidth > 30 && (
                                              <div className="relative z-10 px-1 text-center w-full overflow-hidden flex flex-col items-center justify-center h-full">
                                                 <div className={`text-[10px] font-black drop-shadow-sm truncate w-full px-1 ${seg.color.text}`}>{seg.name}</div>
-                                                {pixelWidth > 60 && (
-                                                    <div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>
-                                                        {safeFormat(seg.start)}
-                                                    </div>
-                                                )}
+                                                {pixelWidth > 60 && (<div className={`text-[9px] font-mono font-bold opacity-90 scale-95 truncate mt-0.5 ${seg.color.text}`}>{safeFormat(seg.start)}</div>)}
                                              </div>
                                           )}
                                        </div>
-                                       
                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-800/90 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-xl opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-opacity z-50">
                                           {seg.name} ({formatDuration(seg.durationMins)})
                                           <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800/90 rotate-45"></div>
@@ -1795,30 +1250,15 @@ export default function ApsSchedulingPage() {
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.5); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { 
-           background: #cbd5e1; border: 2px solid transparent; 
-           background-clip: content-box; border-radius: 99px; 
-           transition: background 0.2s;
-        }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border: 2px solid transparent; background-clip: content-box; border-radius: 99px; transition: background 0.2s; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
         .custom-scrollbar::-webkit-scrollbar-corner { background: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes pulse-once {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
-            50% { box-shadow: 0 0 0 6px rgba(59,130,246,0.3); border-color: #3b82f6; }
-        }
-        .animate-pulse-once {
-            animation: pulse-once 1.5s cubic-bezier(0.4, 0, 0.6, 1) 2;
-        }
-        /* New Spring Animation */
-        @keyframes menu-spring {
-          0% { opacity: 0; transform: scale(0.8) translateY(10px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .animate-menu-spring {
-          animation: menu-spring 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
+        @keyframes pulse-once { 0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); } 50% { box-shadow: 0 0 0 6px rgba(59,130,246,0.3); border-color: #3b82f6; } }
+        .animate-pulse-once { animation: pulse-once 1.5s cubic-bezier(0.4, 0, 0.6, 1) 2; }
+        @keyframes menu-spring { 0% { opacity: 0; transform: scale(0.8) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        .animate-menu-spring { animation: menu-spring 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
       `}</style>
     </div>
   );
