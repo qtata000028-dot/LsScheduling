@@ -1655,7 +1655,8 @@ export default function ApsSchedulingPage() {
                                        
                                        return (
                                           <div className="absolute h-full z-0 flex items-center" style={{ left: startStyle.left, width: width }}>
-                                             <div className={`absolute inset-x-0 h-[3px] rounded-full transition-colors duration-300 ${isTaskPaused ? 'bg-slate-200' : 'bg-slate-200/60'}`}></div>
+                                             {/* 优化：暂停状态下连接线变为虚线 */}
+                                             <div className={`absolute inset-x-0 rounded-full transition-colors duration-300 ${isTaskPaused ? 'bg-[repeating-linear-gradient(90deg,#cbd5e1,#cbd5e1_4px,transparent_4px,transparent_8px)] bg-transparent h-[2px]' : 'bg-slate-200/60 h-[3px]'}`}></div>
                                           </div>
                                        );
                                    })()
@@ -1681,7 +1682,8 @@ export default function ApsSchedulingPage() {
                                        <div 
                                           className={`absolute inset-0 w-full h-full rounded-xl cursor-pointer pointer-events-auto border flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm ${
                                               isTaskPaused 
-                                                ? 'bg-slate-100 border-slate-200 shadow-none grayscale opacity-80' 
+                                                // 优化：高级暂停状态 - 斜纹+虚线边框
+                                                ? 'bg-[repeating-linear-gradient(45deg,rgba(248,250,252,0.9),rgba(248,250,252,0.9)_10px,rgba(226,232,240,0.6)_10px,rgba(226,232,240,0.6)_20px)] border-slate-300 border-dashed text-slate-400 shadow-none' 
                                                 : `${seg.color.bgGradient} ${seg.color.shadow} ${seg.color.border}`
                                           }`}
                                           onPointerDown={(e) => handlePointerDownSegment(e, seg, task)}
